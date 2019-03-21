@@ -11,17 +11,18 @@ import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.DenseLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
-
+import org.nd4j.linalg.learning.config.Adam;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 
@@ -152,20 +153,22 @@ public class MainActivity extends AppCompatActivity {
                     .name("Output")
                     .activation(Activation.SOFTMAX)
                     .build();
-
-
-            NeuralNetConfiguration.Builder nncBuilder = new NeuralNetConfiguration.Builder();
             long seed = 6;
-            nncBuilder.seed(seed);
-            nncBuilder.activation(Activation.TANH);
-            nncBuilder.weightInit(WeightInit.XAVIER);
 
-            NeuralNetConfiguration.ListBuilder listBuilder = nncBuilder.list();
-            listBuilder.layer(0, inputLayer);
-            listBuilder.layer(1, hiddenLayer);
-            listBuilder.layer(2, outputLayer);
+            MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                    .seed(seed) //include a random seed for reproducibility
+                    // use stochastic gradient descent as an optimization algorithm
+                    .activation(Activation.TANH)
+                    .weightInit(WeightInit.XAVIER)
+                    .updater(new Adam(0.01))
+                    .l2(1e-4)
+                    .list()
+                    .layer(inputLayer)
+                    .layer(hiddenLayer)
+                    .layer(outputLayer)
+                    .build();
 
-            MultiLayerNetwork myNetwork = new MultiLayerNetwork(listBuilder.build());
+            MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
             myNetwork.init();
 
 
