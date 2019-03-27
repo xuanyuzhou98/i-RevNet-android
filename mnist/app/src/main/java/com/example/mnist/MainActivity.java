@@ -1,5 +1,8 @@
 package com.example.mnist;
 
+import java.io.File;
+import java.util.Random;
+
 import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -8,7 +11,11 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
 
-import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
+import org.datavec.api.split.FileSplit;
+import org.datavec.image.recordreader.ImageRecordReader;
+import org.datavec.image.loader.NativeImageLoader;
+import org.datavec.api.io.labels.ParentPathLabelGenerator;
+import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
@@ -21,9 +28,13 @@ import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
+import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
+import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import org.nd4j.evaluation.classification.Evaluation;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String basePath = System.getProperty("java.io.tmpdir") + "/mnist";
+    private static final String dataUrl = "http://github.com/myleott/mnist_png/raw/master/mnist_png.tar.gz";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -45,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
 
     private class AsyncTaskRunner extends AsyncTask<String, Integer, String> {
 
+
         // Runs in UI before background thread is called
         @Override
         protected void onPreExecute() {
@@ -59,17 +71,46 @@ public class MainActivity extends AppCompatActivity {
             //number of rows and columns in the input pictures
             final int numRows = 28;
             final int numColumns = 28;
+            int channels = 1; // single channel for grayscale images
             int outputNum = 10; // number of output classes
             int batchSize = 64; // batch size for each epoch
             int rngSeed = 123; // random number seed for reproducibility
             int numEpochs = 15; // number of epochs to perform
             double rate = 0.0015; // learning rate
+            Random randNumGen = new Random(rngSeed);
 
             //Get the DataSetIterators:
-            Log.d("build model", "Build model....");
+            Log.d("load data", "Data load and vectorization...");
+            String localFilePath = basePath + "/mnist_png.tar.gz";
             try {
-                DataSetIterator mnistTrain = new MnistDataSetIterator( batchSize, true, rngSeed);
-                DataSetIterator mnistTest = new MnistDataSetIterator(batchSize, false, rngSeed);
+                if (DataUtilities.downloadFile(dataUrl, localFilePath))
+                    Log.d("Data download", "Data downloaded from " + dataUrl);
+                if (!new File(basePath + "/mnist_png").exists())
+                    DataUtilities.extractTarGz(localFilePath, basePath);
+                // vectorization of train data
+                File trainData = new File(basePath + "/mnist_png/training");
+                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
+                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                trainRR.initialize(trainSplit);
+                DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
+
+                // pixel values from 0-255 to 0-1 (min-max scaling)
+                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+                scaler.fit(mnistTrain);
+                mnistTrain.setPreProcessor(scaler);
+
+                // vectorization of test data
+                File testData = new File(basePath + "/mnist_png/testing");
+                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+
+                testRR.initialize(testSplit);
+
+                DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
+                mnistTest.setPreProcessor(scaler); // same normalization for better results
+
+                Log.d("build model", "Build model....");
                 //build the layers of the network
                 DenseLayer inputLayer = new DenseLayer.Builder()
                         .nIn(numRows * numColumns)
@@ -121,9 +162,10 @@ public class MainActivity extends AppCompatActivity {
                 //a results string. If the results were returned here they would be passed to onPostExecute.
                 Log.d("evaluate stats", eval.stats());
                 Log.d("finished","****************Example finished********************");
-            }catch(Exception e) {
+            }catch(Exception e){
                 e.printStackTrace();
             }
+
             return "";
         }
 
