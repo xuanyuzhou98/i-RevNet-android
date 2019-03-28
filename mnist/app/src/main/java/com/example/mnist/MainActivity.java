@@ -27,6 +27,7 @@ import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.DenseLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
+import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
@@ -82,19 +83,23 @@ public class MainActivity extends AppCompatActivity {
             final int numColumns = 28;
             int channels = 1; // single channel for grayscale images
             int outputNum = 10; // number of output classes
-            int batchSize = 64; // batch size for each epoch
-            int rngSeed = 123; // random number seed for reproducibility
+            int batchSize = 54; // batch size for each epoch
+            int rngSeed = 1234; // random number seed for reproducibility
             int numEpochs = 1; // number of epochs to perform
             Random randNumGen = new Random(rngSeed);
 
             //Get the DataSetIterators:
             Log.d("load data", "Data load and vectorization...");
-            String localFilePath = basePath + "/mnist_png.tar.gz";
+
+
             try {
-                if (DataUtilities.downloadFile(dataUrl, localFilePath))
+                if (!new File(basePath + "/mnist_png").exists()) {
                     Log.d("Data download", "Data downloaded from " + dataUrl);
-                if (!new File(basePath + "/mnist_png").exists())
-                    DataUtilities.extractTarGz(localFilePath, basePath);
+                    String localFilePath = basePath + "/mnist_png.tar.gz";
+                    if (DataUtilities.downloadFile(basePath, localFilePath)) {
+                        DataUtilities.extractTarGz(localFilePath, basePath);
+                    }
+                }
                 // vectorization of train data
                 File trainData = new File(basePath + "/mnist_png/training");
                 FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
@@ -102,7 +107,6 @@ public class MainActivity extends AppCompatActivity {
                 ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
                 trainRR.initialize(trainSplit);
                 DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
-
                 // pixel values from 0-255 to 0-1 (min-max scaling)
                 DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
                 scaler.fit(mnistTrain);
@@ -112,9 +116,7 @@ public class MainActivity extends AppCompatActivity {
                 File testData = new File(basePath + "/mnist_png/testing");
                 FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
                 ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-
                 testRR.initialize(testSplit);
-
                 DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
                 mnistTest.setPreProcessor(scaler); // same normalization for better results
 
@@ -164,6 +166,8 @@ public class MainActivity extends AppCompatActivity {
 
                 MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
                 myNetwork.init();
+                myNetwork.setListeners(new ScoreIterationListener(10));
+                Log.d("Total num of params", "Total num of params" + myNetwork.numParams());
 
                 Log.d("train model", "Train model....");
                 for(int l=0; l<=numEpochs; l++) {
