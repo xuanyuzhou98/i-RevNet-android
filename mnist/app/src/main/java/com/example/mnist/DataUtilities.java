@@ -34,6 +34,9 @@ public class DataUtilities {
         File file = new File(localPath);
         if (!file.exists()) {
             file.getParentFile().mkdirs();
+            Log.d("load data", file.getParentFile().getAbsolutePath());
+            boolean exist = file.getParentFile().exists();
+            Log.d("load data", "exist"+exist);
             HttpClientBuilder builder = HttpClientBuilder.create();
             CloseableHttpClient client = builder.build();
             try (CloseableHttpResponse response = client.execute(new HttpGet(remoteUrl))) {
