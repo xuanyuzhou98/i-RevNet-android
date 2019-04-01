@@ -78,8 +78,11 @@ public class InjectivePad extends BaseLayer<ConvolutionLayer> {
                         .build())
                 .setInputType(InputType.convolutionalFlat(input.shape()[0],input.shape()[1], input.shape()[2])) // InputType.convolutional for normal image
                 .build();
+        MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
+        myNetwork.init();
+        INDArray output = myNetwork.output(input);
+        return output.permute(0, 2, 1, 3);
     }
-
 
     @Override
     public boolean isPretrainLayer() {
