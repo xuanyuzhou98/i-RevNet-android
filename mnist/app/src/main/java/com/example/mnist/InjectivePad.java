@@ -59,6 +59,7 @@ import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.schedule.MapSchedule;
 import org.nd4j.linalg.schedule.ScheduleType;
 
+
 public class InjectivePad extends BaseLayer<ConvolutionLayer> {
     protected int padSize;
     protected ZeroPaddingLayer pad;
