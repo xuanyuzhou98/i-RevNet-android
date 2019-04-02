@@ -61,13 +61,13 @@ import org.nd4j.linalg.schedule.ScheduleType;
 
 
 public class InjectivePad extends BaseLayer<ConvolutionLayer> {
-    protected int padSize;
+    protected long padSize;
     protected ZeroPaddingLayer pad;
 
-    public InjectivePad(int PadSize, NeuralNetConfiguration conf){
+    public InjectivePad(long PadSize, NeuralNetConfiguration conf){
         super(conf);
         padSize = PadSize;
-        pad = new ZeroPaddingLayer(0, padSize, 0, 0);
+        pad = new ZeroPaddingLayer(0, (int)padSize, 0, 0);
 
     }
     @Override
@@ -75,7 +75,7 @@ public class InjectivePad extends BaseLayer<ConvolutionLayer> {
         input = input.permute(0, 2, 1, 3);
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .list()
-                .layer(new ZeroPaddingLayer.Builder(0, padSize, 0, 0)
+                .layer(new ZeroPaddingLayer.Builder(0, (int)padSize, 0, 0)
                         .build())
                 .setInputType(InputType.convolutionalFlat(input.shape()[0],input.shape()[1], input.shape()[2])) // InputType.convolutional for normal image
                 .build();
