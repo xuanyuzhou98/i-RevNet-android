@@ -2,8 +2,8 @@
 Train Reversible Neural Network on mobile devices
 
 # Our goal:
-1. Train a small network on mobile device from scratch
-2. Few shot learning/finetune a network on mobile device
+1. Implement and optimize neural network training on device(with respect to memory, FLOP, energy etc.)
+2. One-shot learning on mobile device
 
 # Why Train on Device:
 1. Customized Models for each user
