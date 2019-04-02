@@ -13,7 +13,7 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 
 public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
     protected boolean first;
-    protected int pad;
+    protected long pad;
     protected int stride;
     protected InjectivePad InjPad;
     protected Psi psi;
@@ -27,8 +27,8 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
         stride = ((IRevLayer) conf().getLayer()).getStride();
         InjPad = new InjectivePad(pad, conf);
         psi = new Psi(conf, stride);
-        int in_ch = ((IRevLayer) conf().getLayer()).getInCh();
-        int out_ch = ((IRevLayer) conf().getLayer()).getOutCh();
+        int in_ch = ((IRevLayer) conf().getLayer()).getNIn();
+        int out_ch = ((IRevLayer) conf().getLayer()).getNOut();
         int mult = ((IRevLayer) conf().getLayer()).getMult();
         boolean affineBN = ((IRevLayer) conf().getLayer()).getAffineBN();
         double DropOutRate = ((IRevLayer) conf().getLayer()).getDropOutRate();
