@@ -23,12 +23,13 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
     public IRevLayerImpl(NeuralNetConfiguration conf) {
         super(conf);
         first = ((IRevLayer) conf().getLayer()).getfirst();
-        pad = ((IRevLayer) conf().getLayer()).getOutCh() * 2 - ((IRevLayer) conf().getLayer()).getInCh();
+        pad = ((IRevLayer) conf().getLayer()).getNOut() * 2 - ((IRevLayer) conf().getLayer()).getNIn();
         stride = ((IRevLayer) conf().getLayer()).getStride();
         InjPad = new InjectivePad(pad, conf);
         psi = new Psi(conf, stride);
-        int in_ch = ((IRevLayer) conf().getLayer()).getNIn();
-        int out_ch = ((IRevLayer) conf().getLayer()).getNOut();
+        this.pad = ((IRevLayer) conf().getLayer()).getPad();
+        long in_ch = ((IRevLayer) conf().getLayer()).getNIn();
+        long out_ch = ((IRevLayer) conf().getLayer()).getNOut();
         int mult = ((IRevLayer) conf().getLayer()).getMult();
         boolean affineBN = ((IRevLayer) conf().getLayer()).getAffineBN();
         double DropOutRate = ((IRevLayer) conf().getLayer()).getDropOutRate();
