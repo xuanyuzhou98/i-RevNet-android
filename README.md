@@ -18,12 +18,6 @@ https://machinethink.net/blog/training-on-device/
 2. Memory Comsumption
 3. Energy Comsumption (Battery) - we might want to train only when the device is charging
 
-# Related Questions
-Q1. What is the advantage and difference between on-device training and federated learning?
-A1. A very important bottleneck for federated learning is cryptographic protocols put in place to ensure
-no individual client’s update can be inspected before averaging with hundreds or thousands of other
-updates (Bonawitz et al., 2017) further increase the amount of bits that need to be uploaded
-
 # Papers for reference
 1. The Reversible Residual Network: Backpropagation Without Storing Activations:
 https://arxiv.org/abs/1707.04585
