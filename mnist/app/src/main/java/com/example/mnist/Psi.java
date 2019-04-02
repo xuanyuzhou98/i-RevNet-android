@@ -4,9 +4,8 @@ import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.layers.BaseLayer;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
 
-import java.util.LinkedList;
-import java.util.List;
 
 public class Psi extends BaseLayer<ConvolutionLayer> {
     long blockSize = 0;
@@ -78,15 +77,11 @@ public class Psi extends BaseLayer<ConvolutionLayer> {
         long dDepth = sDepth * this.blockSizeSq;
         long dHeight = sHeight / this.blockSize;
 
-        List<INDArray> list = new LinkedList<INDArray>();
         for (int i = 0; i < sWidth; i += this.blockSize) {
-            list.add(output.slice(i, 2).reshape(batchSize, dHeight, dDepth));
+            output = Nd4j.stack(2, output, output.slice(i, 2).reshape(batchSize, dHeight, dDepth));
         }
-        nd4j.
 
-
-
-                output = output.permute(0, 2, 1, 3);
+        output = output.permute(0, 2, 1, 3);
         output = output.permute(0, 3, 1, 2);
 
         return output;
