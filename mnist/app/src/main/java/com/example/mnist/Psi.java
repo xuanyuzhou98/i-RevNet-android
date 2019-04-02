@@ -70,6 +70,7 @@ public class Psi extends BaseLayer<ConvolutionLayer> {
         INDArray output = input.permute(0, 2, 3, 1);
         long[] shape = output.shape();
         System.out.print(shape);
+        assert shape.length >= 4;
         long batchSize = shape[0];
         long sHeight = shape[1];
         long sWidth = shape[2];
