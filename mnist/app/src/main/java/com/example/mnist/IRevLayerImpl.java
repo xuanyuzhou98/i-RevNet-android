@@ -1,8 +1,10 @@
 package com.example.mnist;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.ActivationLayer;
 import org.deeplearning4j.nn.conf.layers.BatchNormalization;
 import org.deeplearning4j.nn.conf.layers.DropoutLayer;
+import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
 import org.deeplearning4j.nn.layers.BaseLayer;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
@@ -77,9 +79,26 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
     }
 
 
-
     @Override
-    public INDArray activate(boolean training, LayerWorkspaceMgr workspaceMgr) {
+    public INDArray activate(INDArray[] x) {
+        if (this.pad != 0 && this.stride == 1) {
+            // append x
+
+            input = input.permute(0, 2, 1, 3);
+            MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                    .list()
+                    .layer(new ZeroPaddingLayer.Builder(0, (int)this.pad, 0, 0)
+                            .build())
+                    .setInputType(InputType.convolutionalFlat(input.shape()[0],input.shape()[1], input.shape()[2])) // InputType.convolutional for normal image
+                    .build();
+            MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
+            myNetwork.init();
+            INDArray output = myNetwork.output(input);
+            output = output.permute(0, 2, 1, 3);
+
+        }
+        INDArray x1 = x[0];
+        INDArray x2 = x[1];
 
     }
 
