@@ -1,28 +1,17 @@
 package com.example.mnist;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
-import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.ActivationLayer;
 import org.deeplearning4j.nn.conf.layers.BatchNormalization;
-import org.deeplearning4j.nn.conf.layers.DenseLayer;
 import org.deeplearning4j.nn.conf.layers.DropoutLayer;
-import org.deeplearning4j.nn.conf.layers.OutputLayer;
-import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.layers.BaseLayer;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.activations.Activation;
-import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
-import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.learning.config.Nesterovs;
-import org.nd4j.linalg.lossfunctions.LossFunctions;
-import org.nd4j.linalg.schedule.MapSchedule;
-import org.nd4j.linalg.schedule.ScheduleType;
-import org.deeplearning4j.nn.conf.dropout.Dropout;
 
-public class IRevLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
+public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
     protected boolean first;
     protected int pad;
     protected int stride;
@@ -31,7 +20,7 @@ public class IRevLayer extends BaseLayer<org.deeplearning4j.nn.conf.layers.Convo
 
 
 
-    public IRevLayer(NeuralNetConfiguration conf) {
+    public IRevLayerImpl(NeuralNetConfiguration conf) {
         super(conf);
         first = ((IRevLayer) conf().getLayer()).getfirst();
         pad = ((IRevLayer) conf().getLayer()).getOutCh() * 2 - ((IRevLayer) conf().getLayer()).getInCh();
