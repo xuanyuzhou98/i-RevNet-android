@@ -10,16 +10,15 @@ import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.activations.Activation;
+import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
 import org.nd4j.linalg.api.ndarray.INDArray;
+i
 
 public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
     protected boolean first;
     protected long pad;
     protected int stride;
-    protected InjectivePad InjPad;
-    protected Psi psi;
-
 
 
     public IRevLayerImpl(NeuralNetConfiguration conf) {
@@ -27,8 +26,6 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
         first = ((IRevLayer) conf().getLayer()).getfirst();
         pad = ((IRevLayer) conf().getLayer()).getNOut() * 2 - ((IRevLayer) conf().getLayer()).getNIn();
         stride = ((IRevLayer) conf().getLayer()).getStride();
-        InjPad = new InjectivePad(pad, conf);
-        psi = new Psi(conf, stride);
         this.pad = ((IRevLayer) conf().getLayer()).getPad();
         long in_ch = ((IRevLayer) conf().getLayer()).getNIn();
         long out_ch = ((IRevLayer) conf().getLayer()).getNOut();
@@ -72,6 +69,7 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
                 .build();
         MultiLayerNetwork myNetwork = new MultiLayerNetwork(config);
         myNetwork.init();
+        myNetwork.output();
 
 
 
@@ -80,25 +78,53 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
 
 
     @Override
-    public INDArray activate(INDArray[] x) {
+    public INDArray activate(boolean training, LayerWorkspaceMgr workspaceMgr) {
         if (this.pad != 0 && this.stride == 1) {
-            // append x
-
-            input = input.permute(0, 2, 1, 3);
+            // split along dim 0 and concat along dim 1
+            INDArray[] x = Utils.split(input, 2, 0);
+            INDArray temp = Nd4j.concat(1, x[0], x[1]);
+            // injection padding
+            temp = temp.permute(0, 2, 1, 3);
             MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                     .list()
                     .layer(new ZeroPaddingLayer.Builder(0, (int)this.pad, 0, 0)
                             .build())
-                    .setInputType(InputType.convolutionalFlat(input.shape()[0],input.shape()[1], input.shape()[2])) // InputType.convolutional for normal image
+                    .setInputType(InputType.convolutionalFlat(temp.shape()[0],temp.shape()[1], temp.shape()[2])) // InputType.convolutional for normal image
                     .build();
             MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
             myNetwork.init();
             INDArray output = myNetwork.output(input);
             output = output.permute(0, 2, 1, 3);
-
+            // split
+            x = Utils.split(temp, 2, 1);
         }
         INDArray x1 = x[0];
         INDArray x2 = x[1];
+
+
+    }
+
+    public INDArray psi(INDArray input, long blockSize) {
+        long blockSizeSq = blockSize * blockSize;
+        INDArray output = input.permute(0, 2, 3, 1);
+        long[] shape = output.shape();
+        System.out.print(shape);
+        assert shape.length >= 4;
+        long batchSize = shape[0];
+        long sHeight = shape[1];
+        long sWidth = shape[2];
+        long sDepth = shape[3];
+        long dDepth = sDepth * blockSizeSq;
+        long dHeight = sHeight / blockSize;
+
+        for (int i = 0; i < sWidth; i += blockSize) {
+            output = Nd4j.stack(2, output, output.slice(i, 2).reshape(batchSize, dHeight, dDepth));
+        }
+
+        output = output.permute(0, 2, 1, 3);
+        output = output.permute(0, 3, 1, 2);
+
+        return output;
 
     }
 

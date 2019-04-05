@@ -39,8 +39,6 @@ public class IRevLayer extends FeedForwardLayer{
     private boolean first;
     private long pad;
     private int stride;
-    private InjectivePad InjPad;
-    private Psi psi;
     private int mult;
     private boolean affineBN;
     private double DropOutRate;
@@ -57,8 +55,6 @@ public class IRevLayer extends FeedForwardLayer{
         this.first = builder.first;
         this.pad = builder.pad;
         this.stride = builder.stride;
-        this.InjPad = builder.InjPad;
-        this.psi = builder.psi;
         this.mult = builder.mult;
         this.affineBN = builder.affineBN;
         this.DropOutRate = builder.DropOutRate;
@@ -184,8 +180,6 @@ public class IRevLayer extends FeedForwardLayer{
         private boolean first;
         private long pad;
         private int stride;
-        private InjectivePad InjPad;
-        private Psi psi;
         private int mult;
         private boolean affineBN;
         private double DropOutRate;
@@ -215,16 +209,6 @@ public class IRevLayer extends FeedForwardLayer{
 
         public Builder Stride(int stride){
             this.stride = stride;
-            return this;
-        }
-
-        public Builder INjPad(InjectivePad InjPad){
-            this.InjPad = InjPad;
-            return this;
-        }
-
-        public Builder Psi(Psi psi){
-            this.psi = psi;
             return this;
         }
 
