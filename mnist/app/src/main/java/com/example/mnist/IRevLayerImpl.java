@@ -1,10 +1,8 @@
 package com.example.mnist;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
-import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.ActivationLayer;
 import org.deeplearning4j.nn.conf.layers.BatchNormalization;
 import org.deeplearning4j.nn.conf.layers.DropoutLayer;
-import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
 import org.deeplearning4j.nn.layers.BaseLayer;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
@@ -13,12 +11,14 @@ import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
 import org.nd4j.linalg.api.ndarray.INDArray;
-i
+import org.deeplearning4j.nn.layers.convolution.ZeroPaddingLayer;
 
 public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
     protected boolean first;
     protected long pad;
     protected int stride;
+    protected MultiLayerNetwork bottleneck;
+    protected ZeroPaddingLayer zeropad;
 
 
     public IRevLayerImpl(NeuralNetConfiguration conf) {
@@ -32,6 +32,7 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
         int mult = ((IRevLayer) conf().getLayer()).getMult();
         boolean affineBN = ((IRevLayer) conf().getLayer()).getAffineBN();
         double DropOutRate = ((IRevLayer) conf().getLayer()).getDropOutRate();
+        this.zeropad = new ZeroPaddingLayer(conf);
         if (pad != 0 && stride == 1){
             in_ch = out_ch * 2;
         }
@@ -67,41 +68,35 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
                         .nOut(out_ch)
                         .build())
                 .build();
-        MultiLayerNetwork myNetwork = new MultiLayerNetwork(config);
-        myNetwork.init();
-        myNetwork.output();
-
-
-
-
+        this.bottleneck = new MultiLayerNetwork(config);
+        this.bottleneck.init();
     }
 
 
     @Override
     public INDArray activate(boolean training, LayerWorkspaceMgr workspaceMgr) {
         if (this.pad != 0 && this.stride == 1) {
+            INDArray[] inputlist = Utils.split(input, 2, 0);
             // split along dim 0 and concat along dim 1
-            INDArray[] x = Utils.split(input, 2, 0);
-            INDArray temp = Nd4j.concat(1, x[0], x[1]);
+            input = Nd4j.concat(1, inputlist[0], inputlist[1]);
             // injection padding
-            temp = temp.permute(0, 2, 1, 3);
-            MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                    .list()
-                    .layer(new ZeroPaddingLayer.Builder(0, (int)this.pad, 0, 0)
-                            .build())
-                    .setInputType(InputType.convolutionalFlat(temp.shape()[0],temp.shape()[1], temp.shape()[2])) // InputType.convolutional for normal image
-                    .build();
-            MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
-            myNetwork.init();
-            INDArray output = myNetwork.output(input);
-            output = output.permute(0, 2, 1, 3);
+            input = input.permute(0, 2, 1, 3);
+            input = this.zeropad.activate(training, workspaceMgr); // need to pass (0, 0, 0, pad_size)
+            input = input.permute(0, 2, 1, 3);
             // split
-            x = Utils.split(temp, 2, 1);
+            inputlist = Utils.split(input, 2, 1);
+            input = Nd4j.concat(0, inputlist[0], inputlist[1]);
         }
-        INDArray x1 = x[0];
-        INDArray x2 = x[1];
-
-
+        INDArray[] inputlist = Utils.split(input, 2, 0);
+        INDArray x1 = inputlist[0];
+        INDArray x2 = inputlist[1];
+        INDArray Fx2 = this.bottleneck.output(x2);
+        if (this.stride == 2) {
+           x1 = psi(inputlist[0],this.stride);
+           x2 = psi(inputlist[1],this.stride);
+        }
+        INDArray y1 = Fx2.add(x1);
+        return  Nd4j.concat(0, x2, y1);
     }
 
     public INDArray psi(INDArray input, long blockSize) {
