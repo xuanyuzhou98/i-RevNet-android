@@ -33,6 +33,7 @@ import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
+import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
@@ -78,119 +79,22 @@ public class MainActivity extends AppCompatActivity {
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            //number of rows and columns in the input pictures
-            final int numRows = 28;
-            final int numColumns = 28;
-            int channels = 1; // single channel for grayscale images
-            int outputNum = 10; // number of output classes
-            int batchSize = 54; // batch size for each epoch
-            int rngSeed = 1234; // random number seed for reproducibility
-            int numEpochs = 1; // number of epochs to perform
-            Random randNumGen = new Random(rngSeed);
-
-            //Get the DataSetIterators:
-            Log.d("load data", "Data load and vectorization...");
-
-
-            try {
-                if (!new File(basePath + "/mnist_png").exists()) {
-                    Log.d("Data download", "Data downloaded from " + dataUrl);
-                    String localFilePath = basePath + "/mnist_png.tar.gz";
-                    if (DataUtilities.downloadFile(basePath, localFilePath)) {
-                        DataUtilities.extractTarGz(localFilePath, basePath);
-                    }
-                }
-                // vectorization of train data
-                File trainData = new File(basePath + "/mnist_png/training");
-                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
-                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                trainRR.initialize(trainSplit);
-                DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
-                // pixel values from 0-255 to 0-1 (min-max scaling)
-                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-                scaler.fit(mnistTrain);
-                mnistTrain.setPreProcessor(scaler);
-
-                // vectorization of test data
-                File testData = new File(basePath + "/mnist_png/testing");
-                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                testRR.initialize(testSplit);
-                DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
-                mnistTest.setPreProcessor(scaler); // same normalization for better results
-
-                Log.d("build model", "Build model....");
-
-                Map<Integer, Double> learningRateSchedule = new HashMap<>();
-                learningRateSchedule.put(0, 0.06);
-                learningRateSchedule.put(200, 0.05);
-                learningRateSchedule.put(600, 0.028);
-                learningRateSchedule.put(800, 0.0060);
-                learningRateSchedule.put(1000, 0.001);
-
-                MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                        .seed(rngSeed)
-                        .l2(0.0005) // ridge regression value
-                        .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION, learningRateSchedule)))
-                        .weightInit(WeightInit.XAVIER)
-                        .list()
-                        .layer(new ConvolutionLayer.Builder(5, 5)
-                                .nIn(channels)
-                                .stride(1, 1)
-                                .nOut(20)
-                                .activation(Activation.IDENTITY)
-                                .build())
-                        .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                                .kernelSize(2, 2)
-                                .stride(2, 2)
-                                .build())
-                        .layer(new ConvolutionLayer.Builder(5, 5)
-                                .stride(1, 1) // nIn need not specified in later layers
-                                .nOut(50)
-                                .activation(Activation.IDENTITY)
-                                .build())
-                        .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                                .kernelSize(2, 2)
-                                .stride(2, 2)
-                                .build())
-                        .layer(new DenseLayer.Builder().activation(Activation.RELU)
-                                .nOut(500)
-                                .build())
-                        .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                                .nOut(outputNum)
-                                .activation(Activation.SOFTMAX)
-                                .build())
-                        .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
-                        .build();
-
-                MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
-                myNetwork.init();
-                myNetwork.setListeners(new ScoreIterationListener(10));
-                Log.d("Total num of params", "Total num of params" + myNetwork.numParams());
-
-                Log.d("train model", "Train model....");
-                for(int l=0; l<=numEpochs; l++) {
-                    myNetwork.fit(mnistTrain);
-                }
-
-                Log.d("evaluate model", "Evaluate model....");
-                Evaluation eval = new Evaluation(outputNum); //create an evaluation object with 10 possible classes
-                while(mnistTest.hasNext()){
-                    DataSet next = mnistTest.next();
-                    INDArray output = myNetwork.output(next.getFeatures()); //get the networks prediction
-                    eval.eval(next.getLabels(), output); //check the prediction against the true class
-                }
-
-
-                //Since we used global variables to store the classification results, no need to return
-                //a results string. If the results were returned here they would be passed to onPostExecute.
-                Log.d("evaluate stats", eval.stats());
-                Log.d("finished","****************Example finished********************");
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-
+            INDArray secondArray = Nd4j.ones(new int[]{10,10,3});
+            MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                    .seed(123)
+                    .list()
+                    .layer(new IRevLayer.Builder()
+                            .First(false)
+                            .Mult(4)
+                            .nIn(1)
+                            .nOut(2)
+                            .Stride(1)
+                            .AffineBN(true)
+                            .build())
+                    .build();
+            MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
+            INDArray output = myNetwork.output(secondArray);
+            Log.d("output of irev layer", output.toString());
             return "";
         }
 
