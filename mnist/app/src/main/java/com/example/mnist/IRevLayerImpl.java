@@ -26,7 +26,8 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
         first = ((IRevLayer) conf().getLayer()).getfirst();
         pad = ((IRevLayer) conf().getLayer()).getNOut() * 2 - ((IRevLayer) conf().getLayer()).getNIn();
         stride = ((IRevLayer) conf().getLayer()).getStride();
-        this.pad = ((IRevLayer) conf().getLayer()).getPad();
+        this.pad = 2 * ((IRevLayer) conf().getLayer()).getNOut() -
+                   ((IRevLayer) conf().getLayer()).getNIn();
         long in_ch = ((IRevLayer) conf().getLayer()).getNIn();
         long out_ch = ((IRevLayer) conf().getLayer()).getNOut();
         int mult = ((IRevLayer) conf().getLayer()).getMult();
@@ -37,7 +38,6 @@ public class IRevLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.C
             in_ch = out_ch * 2;
         }
         int rngSeed = 1234; // random number seed for reproducibility
-        INDArray layers;
         MultiLayerConfiguration config = new NeuralNetConfiguration.Builder()
                 .seed(rngSeed)
                 .list()

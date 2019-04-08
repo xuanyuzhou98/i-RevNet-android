@@ -45,12 +45,7 @@ public class IRevLayer extends FeedForwardLayer{
     private int in_ch;
     private int out_ch;
 
-
-    public IRevLayer() {
-
-    }
-
-    private IRevLayer(Builder builder) {
+    public IRevLayer(Builder builder) {
         super(builder);
         this.first = builder.first;
         this.pad = builder.pad;
@@ -201,11 +196,6 @@ public class IRevLayer extends FeedForwardLayer{
             return this;
         }
 
-        public Builder Pad(long pad){
-            this.pad = pad;
-
-            return this;
-        }
 
         public Builder Stride(int stride){
             this.stride = stride;
