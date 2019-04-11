@@ -138,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
                 int[] conv1OutShape = getConvLayerOutShape(numRows, numColumns, 5, 1);
                 int conv1OutChannels = 20;
                 int flopConv1 = getFlopCountConv(channels, 5, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
+                int flopConv1Back = getFlopCountConvBackward(channels, 5, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
 
                 SubsamplingLayer maxpool1 = new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
                         .kernelSize(2, 2)
@@ -154,6 +155,7 @@ public class MainActivity extends AppCompatActivity {
                 int[] conv2OutShape = getConvLayerOutShape(maxpool1OutShape[0], maxpool1OutShape[1], 5, 1);
                 int conv2OutChannels = 50;
                 int flopConv2 = getFlopCountConv(maxpool1OutChannels, 5, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
+                int flopConv2Back = getFlopCountConvBackward(channels, 5, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
 
                 SubsamplingLayer maxpool2 = new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
                         .kernelSize(2, 2)
@@ -167,13 +169,17 @@ public class MainActivity extends AppCompatActivity {
                         .build();
                 int fcInShape = maxpool2OutShape[0] * maxpool2OutShape[1] * maxpool2OutChannels;
                 int flopFC = getFlopCountFC(fcInShape, 500);
+                int flopFCBack = getFlopCountFCBackward(fcInShape, 500);
 
                 OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
                         .nOut(outputNum)
                         .activation(Activation.SOFTMAX)
                         .build();
-                int totalFlops = flopConv1 + flopConv2 + flopFC;
-                Log.d("Flop count", "count " + totalFlops);
+                int totalFlopsForward = batchSize * (flopConv1 + flopConv2 + flopFC);
+                int totalFlopsBackward = batchSize * (flopConv1Back + flopConv2Back + flopFCBack);
+                Log.d("Flop count", "batch size " + batchSize);
+                Log.d("Flop count", "forward count " + totalFlopsForward);
+                Log.d("Flop count", "bacward count " + totalFlopsBackward);
 
                 MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
@@ -245,23 +251,34 @@ public class MainActivity extends AppCompatActivity {
 
     private int getFlopCountConv(int channels, int filter_size, int num_filters,
                                  int outShapeH, int outShapeW) {
-        int forward = (1 + 2 * channels * filter_size * filter_size) * num_filters * outShapeH * outShapeW;
-        // TODO calculate backward pass
-        int backward = 0;
-        return forward + backward;
+        return (1 + 2 * channels * filter_size * filter_size) * num_filters * outShapeH * outShapeW;
     }
 
     private int getFlopCountFC(int inputSize, int outputSize) {
-        int forward = (2 * inputSize - 1) * outputSize;
-        int backward = 0;
-        return  forward + backward;
+        return  (2 * inputSize - 1) * outputSize;
     }
 
-    private int getFlopCountSigmoid(int outputSize) {
-        int forward = 4 * outputSize;
-        int backward = 0;
-        return  forward + backward;
+    private int getFlopCountConvBackward(int channels, int filter_size, int num_filters,
+                                         int outShapeH, int outShapeW) {
+        int out = outShapeH * outShapeW;
+        int dw = num_filters *
+                ((2 * out - 1) * channels * filter_size * filter_size);
+        int dx_cols = channels * filter_size * filter_size * (2 * num_filters - 1) * out;
+        int dx = channels * filter_size * filter_size * out;
+        return dw + dx_cols + dx;
     }
+
+    private int getFlopCountFCBackward(int inputSize, int outputSize) {
+        int dx = (2 * outputSize - 1) * inputSize;
+        int dw = inputSize * outputSize;
+        return dx + dw;
+    }
+
+//    private int getFlopCountSigmoid(int outputSize) {
+//        int forward = 4 * outputSize;
+//        int backward = 0;
+//        return  forward + backward;
+//    }
 
 
 }
