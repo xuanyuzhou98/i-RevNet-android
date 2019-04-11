@@ -8,7 +8,7 @@ android {
     compileSdkVersion 28
     defaultConfig {
         applicationId "com.example.mnist"
-        minSdkVersion 28
+        minSdkVersion 26
         targetSdkVersion 28
         versionCode 1
         versionName "1.0"
@@ -58,25 +58,25 @@ dependencies {
         exclude group: 'org.nd4j', module: 'nd4j-base64'
     }
     api 'cz.msebera.android:httpclient:4.4.1.1'
-    api 'org.nd4j:nd4j-native:1.0.0-beta3'
-    api 'org.nd4j:nd4j-native:1.0.0-beta3'
-    api 'org.nd4j:nd4j-native:1.0.0-beta3'
-    api 'org.nd4j:nd4j-native:1.0.0-beta3'
-    api 'org.nd4j:nd4j-native:1.0.0-beta3'
-    api 'org.bytedeco.javacpp-presets:openblas:0.3.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:openblas:0.3.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:openblas:0.3.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:openblas:0.3.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:openblas:0.3.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:opencv:3.4.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:opencv:3.4.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:opencv:3.4.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:opencv:3.4.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:opencv:3.4.3-1.4.3'
-    api 'org.bytedeco.javacpp-presets:leptonica:1.76.0-1.4.3'
-    api 'org.bytedeco.javacpp-presets:leptonica:1.76.0-1.4.3'
-    api 'org.bytedeco.javacpp-presets:leptonica:1.76.0-1.4.3'
-    api 'org.bytedeco.javacpp-presets:leptonica:1.76.0-1.4.3'
-    api 'org.bytedeco.javacpp-presets:leptonica:1.76.0-1.4.3'
+    compile group: 'org.nd4j', name: 'nd4j-native', version: '1.0.0-beta3'
+    compile group: 'org.nd4j', name: 'nd4j-native', version: '1.0.0-beta3', classifier: "android-arm"
+    compile group: 'org.nd4j', name: 'nd4j-native', version: '1.0.0-beta3', classifier: "android-arm64"
+    compile group: 'org.nd4j', name: 'nd4j-native', version: '1.0.0-beta3', classifier: "android-x86"
+    compile group: 'org.nd4j', name: 'nd4j-native', version: '1.0.0-beta3', classifier: "android-x86_64"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'openblas', version: '0.3.3-1.4.3'
+    compile group: 'org.bytedeco.javacpp-presets', name: 'openblas', version: '0.3.3-1.4.3', classifier: "android-arm"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'openblas', version: '0.3.3-1.4.3', classifier: "android-arm64"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'openblas', version: '0.3.3-1.4.3', classifier: "android-x86"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'openblas', version: '0.3.3-1.4.3', classifier: "android-x86_64"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'opencv', version: '3.4.3-1.4.3'
+    compile group: 'org.bytedeco.javacpp-presets', name: 'opencv', version: '3.4.3-1.4.3', classifier: "android-arm"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'opencv', version: '3.4.3-1.4.3', classifier: "android-arm64"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'opencv', version: '3.4.3-1.4.3', classifier: "android-x86"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'opencv', version: '3.4.3-1.4.3', classifier: "android-x86_64"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'leptonica', version: '1.76.0-1.4.3'
+    compile group: 'org.bytedeco.javacpp-presets', name: 'leptonica', version: '1.76.0-1.4.3', classifier: "android-arm"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'leptonica', version: '1.76.0-1.4.3', classifier: "android-arm64"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'leptonica', version: '1.76.0-1.4.3', classifier: "android-x86"
+    compile group: 'org.bytedeco.javacpp-presets', name: 'leptonica', version: '1.76.0-1.4.3', classifier: "android-x86_64"
     api 'org.slf4j:slf4j-jdk14:1.7.25'
 }
