@@ -135,30 +135,45 @@ public class MainActivity extends AppCompatActivity {
                         .nOut(20)
                         .activation(Activation.IDENTITY)
                         .build();
-                NeuralNetConfiguration.ListBuilder builder = new NeuralNetConfiguration.Builder()
-                        .seed(rngSeed)
-                        .l2(0.0005) // ridge regression value
-                        .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION, learningRateSchedule)))
-                        .weightInit(WeightInit.XAVIER)
-                        .list()
-                        .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
-                        .layer(conv1);
-                long[] conv1InShape = builder.getInputType().getShape();
-                builder = builder.layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                int[] conv1OutShape = getConvLayerOutShape(numRows, numColumns, 5, 1);
+                int conv1OutChannels = 20;
+                int flopConv1 = getFlopCountConv(channels, 5, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
+
+                SubsamplingLayer maxpool1 = new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
                         .kernelSize(2, 2)
                         .stride(2, 2)
-                        .build());
-                long[] maxpool1InShape = builder.getInputType().getShape();
-                builder = builder.layer(new ConvolutionLayer.Builder(5, 5)
+                        .build();
+                int[] maxpool1OutShape = getConvLayerOutShape(conv1OutShape[0], conv1OutShape[1], 2, 2);
+                int maxpool1OutChannels = conv1OutChannels;
+
+                ConvolutionLayer conv2 = new ConvolutionLayer.Builder(5, 5)
                         .stride(1, 1) // nIn need not specified in later layers
                         .nOut(50)
                         .activation(Activation.IDENTITY)
-                        .build());
-                long[] conv2InShape = builder.getInputType().getShape();
-                Log.d("layer 1 shape", conv1InShape[0] + " " + conv1InShape[1]);
-                Log.d("layer 2 shape", maxpool1InShape[0] + " " + maxpool1InShape[1]);
-                Log.d("layer 3 shape", conv2InShape[0] + " " + conv2InShape[1]);
+                        .build();
+                int[] conv2OutShape = getConvLayerOutShape(maxpool1OutShape[0], maxpool1OutShape[1], 5, 1);
+                int conv2OutChannels = 50;
+                int flopConv2 = getFlopCountConv(maxpool1OutChannels, 5, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
 
+                SubsamplingLayer maxpool2 = new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build();
+                int[] maxpool2OutShape = getConvLayerOutShape(conv2OutShape[0], conv2OutShape[1], 2, 2);
+                int maxpool2OutChannels = conv2OutChannels;
+
+                DenseLayer fc = new DenseLayer.Builder().activation(Activation.RELU)
+                        .nOut(500)
+                        .build();
+                int fcInShape = maxpool2OutShape[0] * maxpool2OutShape[1] * maxpool2OutChannels;
+                int flopFC = getFlopCountFC(fcInShape, 500);
+
+                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(outputNum)
+                        .activation(Activation.SOFTMAX)
+                        .build();
+                int totalFlops = flopConv1 + flopConv2 + flopFC;
+                Log.d("Flop count", "count " + totalFlops);
 
                 MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
@@ -168,45 +183,17 @@ public class MainActivity extends AppCompatActivity {
                         .list()
                         .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
                         .layer(conv1)
-                        .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                                .kernelSize(2, 2)
-                                .stride(2, 2)
-                                .build())
-                        .layer(new ConvolutionLayer.Builder(5, 5)
-                                .stride(1, 1) // nIn need not specified in later layers
-                                .nOut(50)
-                                .activation(Activation.IDENTITY)
-                                .build())
-                        .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                                .kernelSize(2, 2)
-                                .stride(2, 2)
-                                .build())
-                        .layer(new DenseLayer.Builder().activation(Activation.RELU)
-                                .nOut(500)
-                                .build())
-                        .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                                .nOut(outputNum)
-                                .activation(Activation.SOFTMAX)
-                                .build())
+                        .layer(maxpool1)
+                        .layer(conv2)
+                        .layer(maxpool2)
+                        .layer(fc)
+                        .layer(outputLayer)
                         .build();
 
                 MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
                 myNetwork.init();
                 myNetwork.setListeners(new ScoreIterationListener(10));
                 Log.d("Total num of params", "Total num of params" + myNetwork.numParams());
-                HashMap<String, Integer> paramsConv1 = new HashMap<>();
-                paramsConv1.put("channels", channels);
-                paramsConv1.put("size", 5);
-                paramsConv1.put("filters", 20);
-                paramsConv1.put("outShapeH", (numRows-20)/1+1);
-                paramsConv1.put("outShapeW", (numRows-20)/1+1);
-                int flopConv1 = getFlopCount("conv", paramsConv1);
-                HashMap<String, Integer> paramsConv2 = new HashMap<>();
-                paramsConv2.put("channels", 20);
-                paramsConv2.put("size", 5);
-                paramsConv2.put("filters", 50);
-                paramsConv2.put("outShapeH", (numRows-20)/1+1);
-                paramsConv2.put("outShapeW", (numRows-20)/1+1);
 
                 Log.d("train model", "Train model....");
                 for(int l=0; l<=numEpochs; l++) {
@@ -250,29 +237,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private int getFlopCount(String type, HashMap<String, Integer> params) {
-        // ref: https://machinethink.net/blog/how-fast-is-my-model/
-        int flopCount = 0;
-        if (type.equals("conv")) {
-            flopCount = getFlopCountConv(params.getOrDefault("channels", 0),
-                    params.getOrDefault("size", 0),
-                    params.getOrDefault("filters", 0),
-                    params.getOrDefault("outShapeH", 0),
-                    params.getOrDefault("outShapeW", 0));
-        } else if (type.equals("fc")) {
-            flopCount = getFlopCountFC(params.getOrDefault("inputSize", 0),
-                    params.getOrDefault("outputSize", 0));
-        } else if (type.equals("sigmoid")) {
-            flopCount = getFlopCountSigmoid(params.getOrDefault("outputSize", 0));
-        } else if (type.equals("relu-fc")) {
-            flopCount = 2 * params.getOrDefault("outputSize", 0);
-        }
-        return flopCount;
+    private int[] getConvLayerOutShape(int inputH, int inputW, int filterSize, int stride) {
+        int outputH = (inputH - filterSize) / stride + 1;
+        int outputW = (inputW - filterSize) / stride + 1;
+        return new int[] {outputH, outputW};
     }
 
-    private int getFlopCountConv(int channels, int size, int filters,
+    private int getFlopCountConv(int channels, int filter_size, int num_filters,
                                  int outShapeH, int outShapeW) {
-        int forward = (1 + 2 * channels * size * size) * filters * outShapeH * outShapeW;
+        int forward = (1 + 2 * channels * filter_size * filter_size) * num_filters * outShapeH * outShapeW;
         // TODO calculate backward pass
         int backward = 0;
         return forward + backward;
