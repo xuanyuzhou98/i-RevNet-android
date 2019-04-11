@@ -261,17 +261,19 @@ public class MainActivity extends AppCompatActivity {
     private int getFlopCountConvBackward(int channels, int filter_size, int num_filters,
                                          int outShapeH, int outShapeW) {
         int out = outShapeH * outShapeW;
+        int db = out;
         int dw = num_filters *
                 ((2 * out - 1) * channels * filter_size * filter_size);
         int dx_cols = channels * filter_size * filter_size * (2 * num_filters - 1) * out;
         int dx = channels * filter_size * filter_size * out;
-        return dw + dx_cols + dx;
+        return db + dw + dx_cols + dx;
     }
 
     private int getFlopCountFCBackward(int inputSize, int outputSize) {
+        int db = outputSize;
         int dx = (2 * outputSize - 1) * inputSize;
         int dw = inputSize * outputSize;
-        return dx + dw;
+        return db + dx + dw;
     }
 
 //    private int getFlopCountSigmoid(int outputSize) {
