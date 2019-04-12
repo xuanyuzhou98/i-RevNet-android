@@ -96,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!new File(basePath + "/mnist_png").exists()) {
                     Log.d("Data download", "Data downloaded from " + dataUrl);
                     String localFilePath = basePath + "/mnist_png.tar.gz";
-                    if (DataUtilities.downloadFile(basePath, localFilePath)) {
+                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
                         DataUtilities.extractTarGz(localFilePath, basePath);
                     }
                 }
@@ -129,39 +129,71 @@ public class MainActivity extends AppCompatActivity {
                 learningRateSchedule.put(800, 0.0060);
                 learningRateSchedule.put(1000, 0.001);
 
+                ConvolutionLayer conv1 = new ConvolutionLayer.Builder(5, 5)
+                        .nIn(channels)
+                        .stride(1, 1)
+                        .nOut(20)
+                        .activation(Activation.IDENTITY)
+                        .build();
+                int[] conv1OutShape = getConvLayerOutShape(numRows, numColumns, 5, 1);
+                int conv1OutChannels = 20;
+                int flopConv1 = getFlopCountConv(channels, 5, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
+                int flopConv1Back = getFlopCountConvBackward(channels, 5, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
+
+                SubsamplingLayer maxpool1 = new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build();
+                int[] maxpool1OutShape = getConvLayerOutShape(conv1OutShape[0], conv1OutShape[1], 2, 2);
+                int maxpool1OutChannels = conv1OutChannels;
+
+                ConvolutionLayer conv2 = new ConvolutionLayer.Builder(5, 5)
+                        .stride(1, 1) // nIn need not specified in later layers
+                        .nOut(50)
+                        .activation(Activation.IDENTITY)
+                        .build();
+                int[] conv2OutShape = getConvLayerOutShape(maxpool1OutShape[0], maxpool1OutShape[1], 5, 1);
+                int conv2OutChannels = 50;
+                int flopConv2 = getFlopCountConv(maxpool1OutChannels, 5, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
+                int flopConv2Back = getFlopCountConvBackward(maxpool1OutChannels, 5, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
+
+                SubsamplingLayer maxpool2 = new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
+                        .kernelSize(2, 2)
+                        .stride(2, 2)
+                        .build();
+                int[] maxpool2OutShape = getConvLayerOutShape(conv2OutShape[0], conv2OutShape[1], 2, 2);
+                int maxpool2OutChannels = conv2OutChannels;
+
+                DenseLayer fc = new DenseLayer.Builder().activation(Activation.RELU)
+                        .nOut(500)
+                        .build();
+                int fcInShape = maxpool2OutShape[0] * maxpool2OutShape[1] * maxpool2OutChannels;
+                int flopFC = getFlopCountFC(fcInShape, 500);
+                int flopFCBack = getFlopCountFCBackward(fcInShape, 500);
+
+                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(outputNum)
+                        .activation(Activation.SOFTMAX)
+                        .build();
+                int totalFlopsForward = batchSize * (flopConv1 + flopConv2 + flopFC);
+                int totalFlopsBackward = batchSize * (flopConv1Back + flopConv2Back + flopFCBack);
+                Log.d("Flop count", "batch size " + batchSize);
+                Log.d("Flop count", "forward count " + totalFlopsForward);
+                Log.d("Flop count", "bacward count " + totalFlopsBackward);
+
                 MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
                         .l2(0.0005) // ridge regression value
                         .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION, learningRateSchedule)))
                         .weightInit(WeightInit.XAVIER)
                         .list()
-                        .layer(new ConvolutionLayer.Builder(5, 5)
-                                .nIn(channels)
-                                .stride(1, 1)
-                                .nOut(20)
-                                .activation(Activation.IDENTITY)
-                                .build())
-                        .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                                .kernelSize(2, 2)
-                                .stride(2, 2)
-                                .build())
-                        .layer(new ConvolutionLayer.Builder(5, 5)
-                                .stride(1, 1) // nIn need not specified in later layers
-                                .nOut(50)
-                                .activation(Activation.IDENTITY)
-                                .build())
-                        .layer(new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                                .kernelSize(2, 2)
-                                .stride(2, 2)
-                                .build())
-                        .layer(new DenseLayer.Builder().activation(Activation.RELU)
-                                .nOut(500)
-                                .build())
-                        .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                                .nOut(outputNum)
-                                .activation(Activation.SOFTMAX)
-                                .build())
                         .setInputType(InputType.convolutionalFlat(numRows, numColumns, channels)) // InputType.convolutional for normal image
+                        .layer(conv1)
+                        .layer(maxpool1)
+                        .layer(conv2)
+                        .layer(maxpool2)
+                        .layer(fc)
+                        .layer(outputLayer)
                         .build();
 
                 MultiLayerNetwork myNetwork = new MultiLayerNetwork(conf);
@@ -205,11 +237,50 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(String result) {
             super.onPostExecute(result);
-
-
             //Hide the progress bar now that we are finished
             ProgressBar bar = (ProgressBar) findViewById(R.id.progressBar);
             bar.setVisibility(View.INVISIBLE);
         }
     }
+
+    private int[] getConvLayerOutShape(int inputH, int inputW, int filterSize, int stride) {
+        int outputH = (inputH - filterSize) / stride + 1;
+        int outputW = (inputW - filterSize) / stride + 1;
+        return new int[] {outputH, outputW};
+    }
+
+    private int getFlopCountConv(int channels, int filter_size, int num_filters,
+                                 int outShapeH, int outShapeW) {
+        return (2 * channels * filter_size * filter_size - 1) * num_filters * outShapeH * outShapeW;
+    }
+
+    private int getFlopCountFC(int inputSize, int outputSize) {
+        return  (2 * inputSize - 1) * outputSize;
+    }
+
+    private int getFlopCountConvBackward(int channels, int filter_size, int num_filters,
+                                         int outShapeH, int outShapeW) {
+        int out = outShapeH * outShapeW;
+        int db = out;
+        int dw = num_filters *
+                ((2 * out - 1) * channels * filter_size * filter_size);
+        int dx_cols = channels * filter_size * filter_size * (2 * num_filters - 1) * out;
+        int dx = channels * filter_size * filter_size * out;
+        return db + dw + dx_cols + dx;
+    }
+
+    private int getFlopCountFCBackward(int inputSize, int outputSize) {
+        int db = outputSize;
+        int dx = (2 * outputSize - 1) * inputSize;
+        int dw = inputSize * outputSize;
+        return db + dx + dw;
+    }
+
+//    private int getFlopCountSigmoid(int outputSize) {
+//        int forward = 4 * outputSize;
+//        int backward = 0;
+//        return  forward + backward;
+//    }
+
+
 }
