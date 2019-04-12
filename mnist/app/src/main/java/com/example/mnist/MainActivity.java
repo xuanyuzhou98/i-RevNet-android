@@ -251,7 +251,7 @@ public class MainActivity extends AppCompatActivity {
 
     private int getFlopCountConv(int channels, int filter_size, int num_filters,
                                  int outShapeH, int outShapeW) {
-        return (1 + 2 * channels * filter_size * filter_size) * num_filters * outShapeH * outShapeW;
+        return (2 * channels * filter_size * filter_size - 1) * num_filters * outShapeH * outShapeW;
     }
 
     private int getFlopCountFC(int inputSize, int outputSize) {
