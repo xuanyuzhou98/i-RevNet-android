@@ -155,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
                 int[] conv2OutShape = getConvLayerOutShape(maxpool1OutShape[0], maxpool1OutShape[1], 5, 1);
                 int conv2OutChannels = 50;
                 int flopConv2 = getFlopCountConv(maxpool1OutChannels, 5, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
-                int flopConv2Back = getFlopCountConvBackward(channels, 5, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
+                int flopConv2Back = getFlopCountConvBackward(maxpool1OutChannels, 5, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
 
                 SubsamplingLayer maxpool2 = new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
                         .kernelSize(2, 2)
