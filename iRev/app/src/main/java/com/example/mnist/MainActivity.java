@@ -183,6 +183,34 @@ public class MainActivity extends AppCompatActivity {
             return output;
         }
 
+        protected String[] iRevInverse(ComputationGraphConfiguration.GraphBuilder graphBuilder,
+                                     int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
+                                     int mult, String input1, String input2, String prefix) {
+            String Fx2 = bottleneckBlock(graphBuilder, in_ch, out_ch, stride, first, dropout_rate,
+                    mult, input2, prefix + "_btnk");
+            if (stride == 2) {
+                graphBuilder
+                        .addLayer(prefix + "_psi1", new PsiLayer.Builder()
+                                .BlockSize(stride)
+                                .nIn(in_ch)
+                                .nOut(out_ch)
+                                .build(), input1)
+                        .addLayer(prefix + "_psi2", new PsiLayer.Builder()
+                                .BlockSize(stride)
+                                .nIn(in_ch)
+                                .nOut(out_ch)
+                                .build(), input2);
+                input1 = prefix + "_psi1";
+                input2 = prefix + "_psi2";
+            }
+            graphBuilder
+                    .addVertex(prefix + "_y1", new ElementWiseVertex(ElementWiseVertex.Op.Add), Fx2, input1);
+            String[] output = new String[2];
+            output[0] = input2;
+            output[1] = prefix + "_y1";
+            return output;
+        }
+
         //This is called from background thread but runs in UI for a progress indicator
         @Override
         protected void onProgressUpdate(Integer... values) {
