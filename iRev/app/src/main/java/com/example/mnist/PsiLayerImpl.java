@@ -85,8 +85,6 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
         INDArray o = workspaceMgr.create(ArrayType.ACTIVATIONS, outShape, 'c');
         o.assign(output);
         return o;
-
-
     }
 
     @Override
