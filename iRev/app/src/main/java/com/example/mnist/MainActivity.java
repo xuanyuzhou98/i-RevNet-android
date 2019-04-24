@@ -1,12 +1,19 @@
 package com.example.mnist;
 
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
+
+import org.datavec.api.io.labels.ParentPathLabelGenerator;
+import org.datavec.api.split.FileSplit;
+import org.datavec.image.loader.NativeImageLoader;
+import org.datavec.image.recordreader.ImageRecordReader;
+import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
 import org.deeplearning4j.nn.conf.graph.ElementWiseVertex;
 import org.deeplearning4j.nn.conf.graph.MergeVertex;
 import org.deeplearning4j.nn.conf.graph.SubsetVertex;
@@ -14,17 +21,30 @@ import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.weights.WeightInit;
+import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
+import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.dataset.DataSet;
+import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
+import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
+import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.conf.*;
 import org.deeplearning4j.nn.conf.layers.*;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.learning.config.Sgd;
+
+import java.io.File;
 import java.lang.Math;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 
 
 public class MainActivity extends AppCompatActivity {
+    private static final String basePath = Environment.getExternalStorageDirectory() + "/mnist";
+    private static final String dataUrl = "http://github.com/myleott/mnist_png/raw/master/mnist_png.tar.gz";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -56,55 +76,109 @@ public class MainActivity extends AppCompatActivity {
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            int channels = 3;
+            int channels = 1;
             int init_ds = 2;
             int in_ch = channels * (int)Math.pow(2, init_ds);
             int n = in_ch / 2;
             int outputNum = 10; // number of output classes
             boolean first = true;
+            final int numRows = 28;
+            final int numColumns = 28;
+            int rngSeed = 1234; // random number seed for reproducibility
+            int numEpochs = 1; // number of epochs to perform
+            Random randNumGen = new Random(rngSeed);
+            int batchSize = 54; // batch size for each epoch
             int mult = 4;
-            INDArray[] TestArray = new INDArray[1];
-            INDArray sample = Nd4j.ones(1, 3, 28, 28);
-            TestArray[0] = sample;
-            ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
-                    .seed(1234)
-                    .activation(Activation.IDENTITY)
-                    .updater(new Sgd(0.05))
-                    .weightInit(WeightInit.XAVIER)
-                    .l1(1e-7)
-                    .l2(5e-5)
-                    .graphBuilder();
-            graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(28, 28, 3))
-                    .addLayer("init_psi", new PsiLayer.Builder()
-                            .BlockSize(init_ds)
-                            .nIn(channels)
-                            .nOut(in_ch)
-                            //.outWidth()
-                            .build(), "input")
-                    .addVertex("x0", new SubsetVertex(0, n-1), "init_psi")
-                    .addVertex("tilde_x0", new SubsetVertex(n, in_ch-1), "init_psi");
+            try {
+                if (!new File(basePath + "/mnist_png").exists()) {
+                    Log.d("Data download", "Data downloaded from " + dataUrl);
+                    String localFilePath = basePath + "/mnist_png.tar.gz";
+                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
+                        DataUtilities.extractTarGz(localFilePath, basePath);
+                    }
+                }
+                // vectorization of train data
+                File trainData = new File(basePath + "/mnist_png/training");
+                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
+                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                trainRR.initialize(trainSplit);
+                DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
+                // pixel values from 0-255 to 0-1 (min-max scaling)
+                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+                scaler.fit(mnistTrain);
+                mnistTrain.setPreProcessor(scaler);
 
-            String[] output = iRevBlock(graph, n, n * 4, 2, first, 0,
-                    mult, "x0", "tilde_x0", "irev1");
-            graph.addVertex("merge", new MergeVertex(), output[0], output[1])
-                    .addLayer("outputBN", new BatchNormalization.Builder()
-                            .nIn(n * 4 * 2)
-                            .nOut(n * 4 * 2)
-                            .build(), "merge")
-                    .addLayer("outputRelu", new ActivationLayer.Builder().activation(Activation.RELU).build(),
-                            "outputBN")
-                    .addLayer("outputPool", new GlobalPoolingLayer.Builder().poolingType(PoolingType.AVG).build(),
-                            "outputRelu")
-                    .addLayer("output", new DenseLayer.Builder().activation(Activation.RELU)
-                            .nOut(outputNum).build(), "outputPool")
-                    .setOutputs("output");
+                // vectorization of test data
+                File testData = new File(basePath + "/mnist_png/testing");
+                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                testRR.initialize(testSplit);
+                DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
+                mnistTest.setPreProcessor(scaler); // same normalization for better results
+                Log.d("build model", "Build model....");
 
-            ComputationGraphConfiguration conf = graph.build();
-            ComputationGraph model = new ComputationGraph(conf);
-            model.init();
-            INDArray testOutput = model.output(TestArray)[0];
+                Map<Integer, Double> learningRateSchedule = new HashMap<>();
+                learningRateSchedule.put(0, 0.06);
+                learningRateSchedule.put(200, 0.05);
+                learningRateSchedule.put(600, 0.028);
+                learningRateSchedule.put(800, 0.0060);
+                learningRateSchedule.put(1000, 0.001);
 
-            Log.d("Output", testOutput.toString());
+                ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
+                        .seed(1234)
+                        .activation(Activation.IDENTITY)
+                        .updater(new Sgd(0.05))
+                        .weightInit(WeightInit.XAVIER)
+                        .l1(1e-7)
+                        .l2(5e-5)
+                        .graphBuilder();
+                graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(28, 28, 1))
+                        .addLayer("init_psi", new PsiLayer.Builder()
+                                .BlockSize(init_ds)
+                                .nIn(channels)
+                                .nOut(in_ch)
+                                //.outWidth()
+                                .build(), "input")
+                        .addVertex("x0", new SubsetVertex(0, n-1), "init_psi")
+                        .addVertex("tilde_x0", new SubsetVertex(n, in_ch-1), "init_psi");
+
+                String[] output = iRevBlock(graph, n, n * 4, 2, first, 0,
+                        mult, "x0", "tilde_x0", "irev1");
+                graph.addVertex("merge", new MergeVertex(), output[0], output[1])
+                        .addLayer("outputBN", new BatchNormalization.Builder()
+                                .nIn(n * 4 * 2)
+                                .nOut(n * 4 * 2)
+                                .build(), "merge")
+                        .addLayer("outputRelu", new ActivationLayer.Builder().activation(Activation.RELU).build(),
+                                "outputBN")
+                        .addLayer("outputPool", new GlobalPoolingLayer.Builder().poolingType(PoolingType.AVG).build(),
+                                "outputRelu")
+                        .addLayer("output", new DenseLayer.Builder().activation(Activation.RELU)
+                                .nOut(outputNum).build(), "outputPool")
+                        .setOutputs("output");
+
+                ComputationGraphConfiguration conf = graph.build();
+                ComputationGraph model = new ComputationGraph(conf);
+                model.init();
+                model.setListeners(new ScoreIterationListener(10));
+                Log.d("Total num of params", "Total num of params" + model.numParams());
+
+                Log.d("train model", "Train model....");
+                for(int l=0; l<=numEpochs; l++) {
+                    model.fit(mnistTrain);
+                }
+
+                Log.d("evaluate model", "Evaluate model....");
+                Evaluation eval = new Evaluation(outputNum); //create an evaluation object with 10 possible classes
+                while(mnistTest.hasNext()){
+                    DataSet next = mnistTest.next();
+                    INDArray testOutput = model.output(next.getFeatures())[0]; //get the networks prediction
+                    eval.eval(next.getLabels(), testOutput); //check the prediction against the true class
+                }
+            }catch(Exception e){
+                e.printStackTrace();
+            }
             return "";
         }
 
