@@ -262,8 +262,7 @@ public class MainActivity extends AppCompatActivity {
                                          int outShapeH, int outShapeW) {
         int out = outShapeH * outShapeW;
         int db = out;
-        int dw = num_filters *
-                ((2 * out - 1) * channels * filter_size * filter_size);
+        int dw = num_filters * ((2 * out - 1) * channels * filter_size * filter_size);
         int dx_cols = channels * filter_size * filter_size * (2 * num_filters - 1) * out;
         int dx = channels * filter_size * filter_size * out;
         return db + dw + dx_cols + dx;

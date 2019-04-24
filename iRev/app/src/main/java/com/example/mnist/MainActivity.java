@@ -97,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
                             "outputRelu")
                     .addLayer("output", new DenseLayer.Builder().activation(Activation.RELU)
                             .nOut(outputNum).build(), "outputPool")
-                    .setOutputs("output");
+                    .setOutputs("output", "outputPool");
 
             ComputationGraphConfiguration conf = graph.build();
             ComputationGraph model = new ComputationGraph(conf);
@@ -105,6 +105,12 @@ public class MainActivity extends AppCompatActivity {
             INDArray testOutput = model.output(TestArray)[0];
 
             Log.d("Output", testOutput.toString());
+
+//            int fcInShape = maxpool2OutShape[0] * maxpool2OutShape[1] * maxpool2OutChannels;
+//            int flopFC = getFlopCountFC(fcInShape, outputNum);
+//            int flopFCBack = getFlopCountFCBackward(fcInShape, outputNum);
+
+
             return "";
         }
 
@@ -152,6 +158,39 @@ public class MainActivity extends AppCompatActivity {
                             .padding(1, 1)
                             .nOut(out_ch)
                             .build(), prefix + "_act2");
+
+            int batchSize = 54;
+            int H = 28;
+            int W = 28;
+
+            int[] conv1OutShape = getConvLayerOutShape(H, W, 3, stride);
+            int conv1OutChannels = out_ch/mult;
+            int conv1InChannels = in_ch;
+            int flopConv1 = getFlopCountConv(conv1InChannels, 3, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
+            int flopConv1Back = getFlopCountConvBackward(conv1InChannels, 3, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
+
+//            int[] bn1OutShape = getConvLayerOutShape(conv1OutShape[0], conv1OutShape[1], 2, 2);
+//            int bn1OutChannels = conv1OutChannels;
+
+            int[] conv2OutShape = getConvLayerOutShape(H, W, 3, stride);
+            int conv2OutChannels = out_ch/mult;
+            int conv2InChannels = out_ch/mult;
+            int flopConv2 = getFlopCountConv(conv2InChannels, 3, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
+            int flopConv2Back = getFlopCountConvBackward(conv2InChannels, 3, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
+
+            int[] conv3OutShape = getConvLayerOutShape(H, W, 3, stride);
+            int conv3OutChannels = out_ch;
+            int conv3InChannels = out_ch/mult;
+            int flopConv3 = getFlopCountConv(conv3InChannels, 3, conv3OutChannels, conv3OutShape[0], conv3OutShape[1]);
+            int flopConv3Back = getFlopCountConvBackward(conv3InChannels, 3, conv3OutChannels, conv3OutShape[0], conv3OutShape[1]);
+
+            int totalFlopsForward = batchSize * (flopConv1 + flopConv2 + flopConv3);
+            int totalFlopsBackward = batchSize * (flopConv1Back + flopConv2Back + flopConv3Back);
+
+            Log.d("BottleNeck Flop count", "batch size " + batchSize);
+            Log.d("BottleNeck Flop count", "forward count " + totalFlopsForward);
+            Log.d("BottleNeck Flop count", "bacward count " + totalFlopsBackward);
+
             return prefix;
         }
 
@@ -199,6 +238,38 @@ public class MainActivity extends AppCompatActivity {
             //Hide the progress bar now that we are finished
             ProgressBar bar = findViewById(R.id.progressBar);
             bar.setVisibility(View.INVISIBLE);
+        }
+
+        private int[] getConvLayerOutShape(int inputH, int inputW, int filterSize, int stride) {
+            int outputH = (inputH - filterSize) / stride + 1;
+            int outputW = (inputW - filterSize) / stride + 1;
+            return new int[] {outputH, outputW};
+        }
+
+        private int getFlopCountConv(int channels, int filter_size, int num_filters,
+                                     int outShapeH, int outShapeW) {
+            return (2 * channels * filter_size * filter_size - 1) * num_filters * outShapeH * outShapeW;
+        }
+
+        private int getFlopCountFC(int inputSize, int outputSize) {
+            return  (2 * inputSize - 1) * outputSize;
+        }
+
+        private int getFlopCountConvBackward(int channels, int filter_size, int num_filters,
+                                             int outShapeH, int outShapeW) {
+            int out = outShapeH * outShapeW;
+            int db = out;
+            int dw = num_filters * ((2 * out - 1) * channels * filter_size * filter_size);
+            int dx_cols = channels * filter_size * filter_size * (2 * num_filters - 1) * out;
+            int dx = channels * filter_size * filter_size * out;
+            return db + dw + dx_cols + dx;
+        }
+
+        private int getFlopCountFCBackward(int inputSize, int outputSize) {
+            int db = outputSize;
+            int dx = (2 * outputSize - 1) * inputSize;
+            int dw = inputSize * outputSize;
+            return db + dx + dw;
         }
     }
 }
