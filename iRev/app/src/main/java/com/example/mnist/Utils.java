@@ -29,12 +29,6 @@ interface Predicate<T> {
 }
 
 class Utils {
-    static INDArray arange(double start, double end, double step) {
-        int elements = (int) ((end - start) / step);
-        System.out.println(elements);
-        return Nd4j.linspace(start, start + elements * step,  elements + 1);
-    }
-
     static INDArray randInt(int [] shape, int upper) {
         return Transforms.floor(Nd4j.rand(shape).mul(upper));
     }
@@ -140,26 +134,6 @@ class Utils {
         return split(arr1, numOfSplits, 1);
     }
 
-    static INDArray booleanOp(INDArray arr, Condition condition) {
-        INDArray dup = arr.dup();
-        BooleanIndexing.applyWhere(dup, condition,
-                new Function<Number, Number>() {
-                    @Override
-                    public Number apply( Number number) {
-                        return 1.0;
-                    }
-                }, new Function<Number, Number>() {
-                    @Override
-                    public Number apply( Number number) {
-                        return 0.0;
-                    }
-                });
-        return dup;
-    }
-
-    static INDArray invert(INDArray arr1) {
-        return booleanOp(arr1, Conditions.equals(0));
-    }
 
     static INDArray compare(INDArray arr1, INDArray arr2, Predicate<Boolean []> predicate) {
         INDArray result = Nd4j.create(arr1.shape());

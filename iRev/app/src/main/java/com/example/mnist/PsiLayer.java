@@ -12,6 +12,7 @@ import org.deeplearning4j.optimize.api.TrainingListener;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import java.util.Collection;
 import java.util.Map;
+import org.nd4j.linalg.api.buffer.DataType;
 
 
 public class PsiLayer extends ConvolutionLayer{
@@ -28,15 +29,15 @@ public class PsiLayer extends ConvolutionLayer{
     }
 
     @Override
-    public Layer instantiate(NeuralNetConfiguration conf, Collection<TrainingListener> iterationListeners,
-                             int layerIndex, INDArray layerParamsView, boolean initializeParams) {
+    public Layer instantiate(NeuralNetConfiguration conf, Collection<TrainingListener> trainingListeners,
+                             int layerIndex, INDArray layerParamsView, boolean initializeParams, DataType networkDataType) {
         //The instantiate method is how we go from the configuration class (i.e., this class) to the implementation class
         // (i.e., a CustomLayerImpl instance)
         //For the most part, it's the same for each type of layer
 
-        PsiLayerImpl irevlayerimpl = new PsiLayerImpl(conf);
+        PsiLayerImpl irevlayerimpl = new PsiLayerImpl(conf, networkDataType);
 
-        irevlayerimpl.setListeners(iterationListeners);             //Set the iteration listeners, if any
+        irevlayerimpl.setListeners(trainingListeners);             //Set the iteration listeners, if any
         irevlayerimpl.setIndex(layerIndex);                         //Integer index of the layer
 
         //Parameter view array: In Deeplearning4j, the network parameters for the entire network (all layers) are

@@ -2,6 +2,7 @@ package com.example.mnist;
 
 import org.deeplearning4j.nn.layers.BaseLayer;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -19,8 +20,8 @@ import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
 public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
     protected int blockSize;
 
-    public PsiLayerImpl(NeuralNetConfiguration conf) {
-        super(conf);
+    public PsiLayerImpl(NeuralNetConfiguration conf, DataType dataType) {
+        super(conf, dataType);
         this.blockSize = ((PsiLayer) conf().getLayer()).getBlockSize();
     }
 
@@ -51,18 +52,9 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
         output = output.permute(0, 2, 1, 3);
         output = output.permute(0, 3, 1, 2);
         long[] outShape = output.shape();
-        INDArray out = workspaceMgr.create(ArrayType.ACTIVATIONS, outShape, 'c');
+        INDArray out = workspaceMgr.create(ArrayType.ACTIVATIONS, this.dataType, outShape);
         out.assign(output);
         return out;
-        int nIn = 3;
-        int depthWise = 4;
-        int kH = 2;
-        int kW = 2;
-
-        int mb = 3;
-        int imgH = 28;
-        int imgW = 28;
-        
     }
 
     @Override

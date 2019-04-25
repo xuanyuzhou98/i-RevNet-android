@@ -11,6 +11,7 @@ import android.util.Log;
 
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.datavec.image.loader.NativeImageLoader;
 import org.datavec.image.recordreader.ImageRecordReader;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
@@ -145,6 +146,11 @@ public class MainActivity extends AppCompatActivity {
 
                 String[] output = iRevBlock(graph, n, n * 4, 2, first, 0,
                         mult, "x0", "tilde_x0", "irev1");
+                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(outputNum)
+                        .activation(Activation.SOFTMAX)
+                        .build();
+
                 graph.addVertex("merge", new MergeVertex(), output[0], output[1])
                         .addLayer("outputBN", new BatchNormalization.Builder()
                                 .nIn(n * 4 * 2)
@@ -154,8 +160,9 @@ public class MainActivity extends AppCompatActivity {
                                 "outputBN")
                         .addLayer("outputPool", new GlobalPoolingLayer.Builder().poolingType(PoolingType.AVG).build(),
                                 "outputRelu")
-                        .addLayer("output", new DenseLayer.Builder().activation(Activation.RELU)
+                        .addLayer("outputProb", new DenseLayer.Builder().activation(Activation.RELU)
                                 .nOut(outputNum).build(), "outputPool")
+                        .addLayer("output", outputLayer, "outputProb")
                         .setOutputs("output");
 
                 ComputationGraphConfiguration conf = graph.build();
