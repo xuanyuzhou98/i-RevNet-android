@@ -10,6 +10,9 @@ import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.linalg.primitives.Pair;
+import org.nd4j.autodiff.samediff.SameDiff;
+import org.nd4j.autodiff.samediff.SDVariable;
+import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
 
 
 
@@ -51,12 +54,23 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
         INDArray out = workspaceMgr.create(ArrayType.ACTIVATIONS, outShape, 'c');
         out.assign(output);
         return out;
+        int nIn = 3;
+        int depthWise = 4;
+        int kH = 2;
+        int kW = 2;
+
+        int mb = 3;
+        int imgH = 28;
+        int imgW = 28;
+        
     }
 
     @Override
     public boolean isPretrainLayer() {
         return false;
     }
+
+
 
     @Override
     public Pair<Gradient, INDArray> backpropGradient(INDArray epsilon, LayerWorkspaceMgr workspaceMgr) {
