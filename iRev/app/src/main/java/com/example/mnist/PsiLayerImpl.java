@@ -35,10 +35,6 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
         long sHeight = shape[1];
         long sWidth = shape[2];
         long sDepth = shape[3];
-        Log.d("first", String.valueOf(input.shape()[0]));
-        Log.d("second", String.valueOf(input.shape()[1]));
-        Log.d("third", String.valueOf(input.shape()[2]));
-        Log.d("fourth", String.valueOf(input.shape()[3]));
         long dDepth = sDepth * blockSizeSq; //new depth
         long dHeight = sHeight / this.blockSize; // new height
         int numOfSplits = (int)sWidth / this.blockSize; //
@@ -68,11 +64,11 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
     public Pair<Gradient, INDArray> backpropGradient(INDArray epsilon, LayerWorkspaceMgr workspaceMgr) {
         assertInputSet(true);
 
-        long[] origShape = epsilon.shape();
+        //long[] origShape = epsilon.shape();
         //Don't collapse dims case: error should be [minibatch, vectorSize, 1] or [minibatch, channels, 1, 1]
         //Reshape it to 2d, to get rid of the 1s
 
-        epsilon = epsilon.reshape(epsilon.ordering(), origShape[0], origShape[1]);
+        //epsilon = epsilon.reshape(epsilon.ordering(), origShape[0], origShape[1], );
         INDArray epsilonNd;
         epsilonNd = inverse(epsilon, this.blockSize);
         Gradient retGradient = new DefaultGradient(); //Empty: no params
@@ -84,10 +80,8 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
     public static INDArray inverse(INDArray in, int blockSize) {
         //in: [1, 7, 7, 24]
         //in:[1, 24, 7, 7]
-        Log.d("double check x2", in.shapeInfoToString());
         long blockSizeSq = blockSize * blockSize; //4
         INDArray out = in.permute(0, 2, 3, 1); // [1, 7, 7, 24]
-        Log.d("See x2 after permute", out.shapeInfoToString());
         long[] shape = out.shape();
         long batchSize = shape[0];
         long dHeight = shape[1];
@@ -106,7 +100,6 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
         }
         INDArray output = Nd4j.stack(0, stack);
         output = output.transpose();
-        Log.d("see stack", output.shapeInfoToString());
         output = output.permute(0, 2, 1, 3, 4).reshape(batchSize, sHeight, sWidth, sDepth); // transpose need to double check.
         output = output.permute(0, 3, 1, 2);
         return output;
