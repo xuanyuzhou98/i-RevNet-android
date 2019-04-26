@@ -76,7 +76,6 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
         INDArray epsilonNd;
         epsilonNd = inverse(epsilon, this.blockSize);
         Gradient retGradient = new DefaultGradient(); //Empty: no params
-
         epsilonNd = workspaceMgr.leverageTo(ArrayType.ACTIVATION_GRAD, epsilonNd);
         return new Pair<>(retGradient, epsilonNd);
 
