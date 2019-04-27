@@ -214,37 +214,49 @@ public class MainActivity extends AppCompatActivity {
                                 prefix + "_bn0");
                 input = prefix + "_act0";
             }
+
+            // layers
+            ConvolutionLayer conv1 = new ConvolutionLayer.Builder(3, 3)
+                    .nIn(in_ch)
+                    .stride(stride, stride)
+                    .padding(1, 1)
+                    .nOut(out_ch/mult)
+                    .build();
+            BatchNormalization bn1 = new BatchNormalization.Builder()
+                    .nIn(out_ch/mult)
+                    .nOut(out_ch/mult)
+                    .build();
+            ActivationLayer act1 = new ActivationLayer.Builder()
+                    .activation(Activation.RELU)
+                    .build();
+            ConvolutionLayer conv2 = new ConvolutionLayer.Builder(3, 3)
+                    .nIn(out_ch/mult)
+                    .padding(1, 1)
+                    .nOut(out_ch/mult)
+                    .build();
+            DropoutLayer drop2 =  new DropoutLayer.Builder(1-dropout_rate)
+                    .build();
+            BatchNormalization bn2 = new BatchNormalization.Builder()
+                    .nIn(out_ch / mult)
+                    .nOut(out_ch / mult)
+                    .build();
+            ActivationLayer act2 = new ActivationLayer.Builder().activation(Activation.RELU).build();
+            ConvolutionLayer conv3 = new ConvolutionLayer.Builder(3, 3)
+                    .nIn(out_ch / mult)
+                    .padding(1, 1)
+                    .nOut(out_ch)
+                    .build();
+
             graphBuilder
-                    .addLayer(prefix+"_conv1", new ConvolutionLayer.Builder(3, 3)
-                            .nIn(in_ch)
-                            .stride(stride, stride)
-                            .padding(1, 1)
-                            .nOut(out_ch/mult)
-                            .build(), input)
-                    .addLayer(prefix+"_bn1", new BatchNormalization.Builder()
-                            .nIn(out_ch/mult)
-                            .nOut(out_ch/mult)
-                            .build(), prefix+"_conv1")
-                    .addLayer(prefix+"_act1", new ActivationLayer.Builder().activation(Activation.RELU).build(),
-                            prefix+"_bn1")
-                    .addLayer(prefix+"_conv2", new ConvolutionLayer.Builder(3, 3)
-                            .nIn(out_ch/mult)
-                            .padding(1, 1)
-                            .nOut(out_ch/mult)
-                            .build(), prefix + "_act1")
-                    .addLayer(prefix+"_drop2", new DropoutLayer.Builder(1-dropout_rate).build(),
-                            prefix + "_conv2")
-                    .addLayer(prefix+"_bn2", new BatchNormalization.Builder()
-                            .nIn(out_ch / mult)
-                            .nOut(out_ch / mult)
-                            .build(), prefix + "_drop2")
-                    .addLayer(prefix+"_act2", new ActivationLayer.Builder().activation(Activation.RELU).build(),
+                    .addLayer(prefix+"_conv1", conv1, input)
+                    .addLayer(prefix+"_bn1", bn1, prefix+"_conv1")
+                    .addLayer(prefix+"_act1", act1, prefix+"_bn1")
+                    .addLayer(prefix+"_conv2", conv2, prefix + "_act1")
+                    .addLayer(prefix+"_drop2", drop2, prefix + "_conv2")
+                    .addLayer(prefix+"_bn2", bn2, prefix + "_drop2")
+                    .addLayer(prefix+"_act2", act2,
                             prefix + "_bn2")
-                    .addLayer(prefix, new ConvolutionLayer.Builder(3, 3)
-                            .nIn(out_ch / mult)
-                            .padding(1, 1)
-                            .nOut(out_ch)
-                            .build(), prefix + "_act2");
+                    .addLayer(prefix, conv3, prefix + "_act2");
 
             int batchSize = 54;
             int H = 28;
@@ -276,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
 
             Log.d("BottleNeck Flop count", "batch size " + batchSize);
             Log.d("BottleNeck Flop count", "forward count " + totalFlopsForward);
-            Log.d("BottleNeck Flop count", "bacward count " + totalFlopsBackward);
+            Log.d("BottleNeck Flop count", "backward count " + totalFlopsBackward);
 
 
             return prefix;
