@@ -125,13 +125,15 @@ public class MainActivity extends AppCompatActivity {
                 learningRateSchedule.put(800, 0.0060);
                 learningRateSchedule.put(1000, 0.001);
 
-                // Layers
+                // Count FLOPS
                 ConvolutionLayer PSIlayer = new PsiLayer.Builder()
                         .BlockSize(init_ds)
                         .nIn(channels)
                         .nOut(in_ch)
                         //.outWidth()
                         .build();
+                int[] PSIlayerShape = getConvLayerOutShape(numRows, numColumns, 3, 1); // TODO: verify PSIlayer shape.
+                int PSIlayerChannels = in_ch;
 
                 ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
                         .seed(1234)
@@ -151,16 +153,31 @@ public class MainActivity extends AppCompatActivity {
                         .nIn(n * 4 * 2)
                         .nOut(n * 4 * 2)
                         .build();
+                int[] BNlayerShape = PSIlayerShape;
+                int BNlayerChannels = n * 4 * 2;
+
                 ActivationLayer ReLulayer = new ActivationLayer.Builder()
                         .activation(Activation.RELU)
                         .build();
+                int[] ReLulayerShape = BNlayerShape;
+                int ReLulayerChannels = BNlayerChannels;
+
                 GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
                         .poolingType(PoolingType.AVG)
                         .build();
+                int[] poolOutShape = ReLulayerShape;
+                int poolOutChannel = ReLulayerChannels;
+
                 DenseLayer Denselayer = new DenseLayer.Builder().
                         activation(Activation.RELU)
                         .nOut(outputNum)
                         .build();
+                int fcInShape = poolOutShape[0] * poolOutShape[1] * poolOutChannel;
+                int flopFC = getFlopCountFC(fcInShape, outputNum);
+                int flopFCBack = getFlopCountFCBackward(fcInShape, outputNum);
+                Log.d("FC Flop count", "forward count " + flopFC);
+                Log.d("FC Flop count", "backward count " + flopFCBack);
+
 
                 String[] output = iRevBlock(graph, n, n * 4, 2, first, 0,
                         mult, "x0", "tilde_x0", "irev1");
@@ -176,6 +193,9 @@ public class MainActivity extends AppCompatActivity {
                         .addLayer("outputProb", Denselayer, "outputPool")
                         .addLayer("output", outputLayer, "outputProb")
                         .setOutputs("output", "outputProb");
+
+
+                Log.d("output::","output");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -202,8 +222,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         protected String bottleneckBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder,
-                                    int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
-                                    int mult, String input, String prefix) {
+                                         int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
+                                         int mult, String input, String prefix) {
             if (!first) {
                 graphBuilder
                         .addLayer(prefix + "_bn0", new BatchNormalization.Builder()
@@ -214,37 +234,49 @@ public class MainActivity extends AppCompatActivity {
                                 prefix + "_bn0");
                 input = prefix + "_act0";
             }
+
+            // layers
+            ConvolutionLayer conv1 = new ConvolutionLayer.Builder(3, 3)
+                    .nIn(in_ch)
+                    .stride(stride, stride)
+                    .padding(1, 1)
+                    .nOut(out_ch/mult)
+                    .build();
+            BatchNormalization bn1 = new BatchNormalization.Builder()
+                    .nIn(out_ch/mult)
+                    .nOut(out_ch/mult)
+                    .build();
+            ActivationLayer act1 = new ActivationLayer.Builder()
+                    .activation(Activation.RELU)
+                    .build();
+            ConvolutionLayer conv2 = new ConvolutionLayer.Builder(3, 3)
+                    .nIn(out_ch/mult)
+                    .padding(1, 1)
+                    .nOut(out_ch/mult)
+                    .build();
+            DropoutLayer drop2 =  new DropoutLayer.Builder(1-dropout_rate)
+                    .build();
+            BatchNormalization bn2 = new BatchNormalization.Builder()
+                    .nIn(out_ch / mult)
+                    .nOut(out_ch / mult)
+                    .build();
+            ActivationLayer act2 = new ActivationLayer.Builder().activation(Activation.RELU).build();
+            ConvolutionLayer conv3 = new ConvolutionLayer.Builder(3, 3)
+                    .nIn(out_ch / mult)
+                    .padding(1, 1)
+                    .nOut(out_ch)
+                    .build();
+
             graphBuilder
-                    .addLayer(prefix+"_conv1", new ConvolutionLayer.Builder(3, 3)
-                            .nIn(in_ch)
-                            .stride(stride, stride)
-                            .padding(1, 1)
-                            .nOut(out_ch/mult)
-                            .build(), input)
-                    .addLayer(prefix+"_bn1", new BatchNormalization.Builder()
-                            .nIn(out_ch/mult)
-                            .nOut(out_ch/mult)
-                            .build(), prefix+"_conv1")
-                    .addLayer(prefix+"_act1", new ActivationLayer.Builder().activation(Activation.RELU).build(),
-                            prefix+"_bn1")
-                    .addLayer(prefix+"_conv2", new ConvolutionLayer.Builder(3, 3)
-                            .nIn(out_ch/mult)
-                            .padding(1, 1)
-                            .nOut(out_ch/mult)
-                            .build(), prefix + "_act1")
-                    .addLayer(prefix+"_drop2", new DropoutLayer.Builder(1-dropout_rate).build(),
-                            prefix + "_conv2")
-                    .addLayer(prefix+"_bn2", new BatchNormalization.Builder()
-                            .nIn(out_ch / mult)
-                            .nOut(out_ch / mult)
-                            .build(), prefix + "_drop2")
-                    .addLayer(prefix+"_act2", new ActivationLayer.Builder().activation(Activation.RELU).build(),
+                    .addLayer(prefix+"_conv1", conv1, input)
+                    .addLayer(prefix+"_bn1", bn1, prefix+"_conv1")
+                    .addLayer(prefix+"_act1", act1, prefix+"_bn1")
+                    .addLayer(prefix+"_conv2", conv2, prefix + "_act1")
+                    .addLayer(prefix+"_drop2", drop2, prefix + "_conv2")
+                    .addLayer(prefix+"_bn2", bn2, prefix + "_drop2")
+                    .addLayer(prefix+"_act2", act2,
                             prefix + "_bn2")
-                    .addLayer(prefix, new ConvolutionLayer.Builder(3, 3)
-                            .nIn(out_ch / mult)
-                            .padding(1, 1)
-                            .nOut(out_ch)
-                            .build(), prefix + "_act2");
+                    .addLayer(prefix, conv3, prefix + "_act2");
 
             int batchSize = 54;
             int H = 28;
@@ -256,8 +288,8 @@ public class MainActivity extends AppCompatActivity {
             int flopConv1 = getFlopCountConv(conv1InChannels, 3, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
             int flopConv1Back = getFlopCountConvBackward(conv1InChannels, 3, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
 
-//            int[] bn1OutShape = getConvLayerOutShape(conv1OutShape[0], conv1OutShape[1], 2, 2);
-//            int bn1OutChannels = conv1OutChannels;
+            int[] bn1OutShape = getConvLayerOutShape(conv1OutShape[0], conv1OutShape[1], 2, 2);
+            int bn1OutChannels = conv1OutChannels;
 
             int[] conv2OutShape = getConvLayerOutShape(H, W, 3, stride);
             int conv2OutChannels = out_ch/mult;
@@ -276,17 +308,17 @@ public class MainActivity extends AppCompatActivity {
 
             Log.d("BottleNeck Flop count", "batch size " + batchSize);
             Log.d("BottleNeck Flop count", "forward count " + totalFlopsForward);
-            Log.d("BottleNeck Flop count", "bacward count " + totalFlopsBackward);
+            Log.d("BottleNeck Flop count", "backward count " + totalFlopsBackward);
 
 
             return prefix;
         }
 
         protected String[] iRevBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder,
-                                    int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
-                                    int mult, String input1, String input2, String prefix) {
+                                     int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
+                                     int mult, String input1, String input2, String prefix) {
             String Fx2 = bottleneckBlock(graphBuilder, in_ch, out_ch, stride, first, dropout_rate,
-                            mult, input2, prefix + "_btnk");
+                    mult, input2, prefix + "_btnk");
             if (stride == 2) {
                 graphBuilder
                         .addLayer(prefix + "_psi1", new PsiLayer.Builder()
