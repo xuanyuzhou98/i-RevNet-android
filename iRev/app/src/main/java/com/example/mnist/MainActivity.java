@@ -125,13 +125,15 @@ public class MainActivity extends AppCompatActivity {
                 learningRateSchedule.put(800, 0.0060);
                 learningRateSchedule.put(1000, 0.001);
 
-                // Layers
+                // Count FLOPS
                 ConvolutionLayer PSIlayer = new PsiLayer.Builder()
                         .BlockSize(init_ds)
                         .nIn(channels)
                         .nOut(in_ch)
                         //.outWidth()
                         .build();
+//                int[] PSIlayerShape =
+//                int PSIlayerChannels = in_ch;
 
                 ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
                         .seed(1234)
@@ -151,16 +153,33 @@ public class MainActivity extends AppCompatActivity {
                         .nIn(n * 4 * 2)
                         .nOut(n * 4 * 2)
                         .build();
+//                int[] BNlayerShape =
+//                int BNlayerChannels = n * 4 * 2;
+
                 ActivationLayer ReLulayer = new ActivationLayer.Builder()
                         .activation(Activation.RELU)
                         .build();
+//                int[] ReLulayerShape =
+//                int ReLulayerChannels = BNlayerChannels;
+
                 GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
                         .poolingType(PoolingType.AVG)
                         .build();
+//                int[] poolOutShape =
+//                int poolOutChannel = ReLulayerChannels;
+
                 DenseLayer Denselayer = new DenseLayer.Builder().
                         activation(Activation.RELU)
                         .nOut(outputNum)
                         .build();
+//                Log.d(Denselayer)
+//                Denselayer
+//                int fcInShape = poolOutShape[0] * poolOutShape[1] * poolOutChannel;
+//                int flopFC = getFlopCountFC(fcInShape, outputNum);
+//                int flopFCBack = getFlopCountFCBackward(fcInShape, outputNum);
+//                Log.d("FC Flop count", "forward count " + flopFC);
+//                Log.d("FC Flop count", "backward count " + flopFCBack);
+
 
                 String[] output = iRevBlock(graph, n, n * 4, 2, first, 0,
                         mult, "x0", "tilde_x0", "irev1");
@@ -176,6 +195,9 @@ public class MainActivity extends AppCompatActivity {
                         .addLayer("outputProb", Denselayer, "outputPool")
                         .addLayer("output", outputLayer, "outputProb")
                         .setOutputs("output", "outputProb");
+
+
+                Log.d("output::","output");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
