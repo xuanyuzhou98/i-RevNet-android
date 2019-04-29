@@ -35,3 +35,8 @@ https://github.com/jhjacobsen/pytorch-i-revnet
 3. Tensorflow code for revnet:
 https://github.com/renmengye/revnet-public
  
+# FLOPS/Memory limitation graph
+
+![limitation](./images/limitation.png)
+
+- This is the limitation graph. This graph is the normal training process, not our irevNet implementation. Basically we keep increasing the conv channel size on an mnist dataset and observe when the training will explode. From this graph we can see that the memory’s limit is 0.768GB, which is fixed  by Android 6.0 640dpi.
