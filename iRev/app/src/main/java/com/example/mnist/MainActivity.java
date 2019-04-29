@@ -34,9 +34,13 @@ import org.deeplearning4j.nn.conf.*;
 import org.deeplearning4j.nn.conf.layers.*;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.learning.config.Sgd;
+import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.shade.jackson.databind.ser.impl.IteratorSerializer;
+
 
 import java.io.File;
 import java.lang.Math;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -45,6 +49,8 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/mnist";
     private static final String dataUrl = "http://github.com/myleott/mnist_png/raw/master/mnist_png.tar.gz";
+    private long bottleNeckForwardFLOPS = 0;
+    private long bottleNeckBackwardFLOPS = 0;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -89,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
             Random randNumGen = new Random(rngSeed);
             int batchSize = 54; // batch size for each epoch
             int mult = 4;
+//            INDArray sample = Nd4j.ones(1, 3, 28, 28);
             try {
                 if (!new File(basePath + "/mnist_png").exists()) {
                     Log.d("Data download", "Data downloaded from " + dataUrl);
@@ -132,8 +139,9 @@ public class MainActivity extends AppCompatActivity {
                         .nOut(in_ch)
                         //.outWidth()
                         .build();
-                int[] PSIlayerShape = getConvLayerOutShape(numRows, numColumns, 3, 1); // TODO: verify PSIlayer shape.
-                int PSIlayerChannels = in_ch;
+                // TODO: verify PSIlayer shape.
+//                int[] PSIlayerShape = getConvLayerOutShape(numRows, numColumns, 3, 1);
+//                int PSIlayerChannels = in_ch;
 
                 ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
                         .seed(1234)
@@ -153,30 +161,35 @@ public class MainActivity extends AppCompatActivity {
                         .nIn(n * 4 * 2)
                         .nOut(n * 4 * 2)
                         .build();
-                int[] BNlayerShape = PSIlayerShape;
+//                int[] BNlayerShape = PSIlayerShape;
                 int BNlayerChannels = n * 4 * 2;
 
                 ActivationLayer ReLulayer = new ActivationLayer.Builder()
                         .activation(Activation.RELU)
                         .build();
-                int[] ReLulayerShape = BNlayerShape;
+//                int[] ReLulayerShape = BNlayerShape;
                 int ReLulayerChannels = BNlayerChannels;
 
                 GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
                         .poolingType(PoolingType.AVG)
                         .build();
-                int[] poolOutShape = ReLulayerShape;
+//                int[] poolOutShape = ReLulayerShape;
                 int poolOutChannel = ReLulayerChannels;
 
                 DenseLayer Denselayer = new DenseLayer.Builder().
                         activation(Activation.RELU)
                         .nOut(outputNum)
                         .build();
-                int fcInShape = poolOutShape[0] * poolOutShape[1] * poolOutChannel;
-                int flopFC = getFlopCountFC(fcInShape, outputNum);
-                int flopFCBack = getFlopCountFCBackward(fcInShape, outputNum);
+                int fcInShape = 1 * 16 * poolOutChannel;
+                long flopFC = getFlopCountFC(fcInShape, outputNum);
+                long flopFCBack = getFlopCountFCBackward(fcInShape, outputNum);
                 Log.d("FC Flop count", "forward count " + flopFC);
                 Log.d("FC Flop count", "backward count " + flopFCBack);
+
+                long totalForwardFLOPS = flopFC + bottleNeckForwardFLOPS;
+                long totalBackwardFLOPS = flopFCBack + bottleNeckBackwardFLOPS;
+                Log.d("TOTAL Flop count", "forward count " + totalForwardFLOPS);
+                Log.d("TOTAL Flop count", "backward count " + totalBackwardFLOPS);
 
 
                 String[] output = iRevBlock(graph, n, n * 4, 2, first, 0,
@@ -192,10 +205,8 @@ public class MainActivity extends AppCompatActivity {
                         .addLayer("outputPool", Poolinglayer, "outputRelu")
                         .addLayer("outputProb", Denselayer, "outputPool")
                         .addLayer("output", outputLayer, "outputProb")
-                        .setOutputs("output", "outputProb");
+                        .setOutputs("output", "outputPool");
 
-
-                Log.d("output::","output");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -204,6 +215,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("Total num of params", "Total num of params" + model.numParams());
 
                 Log.d("train model", "Train model....");
+//                INDArray[] outs = model.output(sample);
+//                Log.d("my shape", Arrays.toString(outs[1].shape()));
                 for(int l=0; l<=numEpochs; l++) {
                     model.fit(mnistTrain);
                 }
@@ -309,7 +322,8 @@ public class MainActivity extends AppCompatActivity {
             Log.d("BottleNeck Flop count", "batch size " + batchSize);
             Log.d("BottleNeck Flop count", "forward count " + totalFlopsForward);
             Log.d("BottleNeck Flop count", "backward count " + totalFlopsBackward);
-
+            bottleNeckForwardFLOPS = totalFlopsForward;
+            bottleNeckBackwardFLOPS = totalFlopsBackward;
 
             return prefix;
         }
