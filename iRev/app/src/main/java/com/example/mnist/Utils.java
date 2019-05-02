@@ -174,4 +174,10 @@ class Utils {
 
         return indexInterval;
     }
+
+    static int[] getConvLayerOutShape(int inputH, int inputW, int filterSize, int stride) {
+        int outputH = (inputH - filterSize) / stride + 1;
+        int outputW = (inputW - filterSize) / stride + 1;
+        return new int[]{outputH, outputW};
+    }
 }

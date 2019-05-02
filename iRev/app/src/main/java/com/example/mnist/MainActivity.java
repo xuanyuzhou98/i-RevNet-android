@@ -229,11 +229,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private int[] getConvLayerOutShape(int inputH, int inputW, int filterSize, int stride) {
-        int outputH = (inputH - filterSize) / stride + 1;
-        int outputW = (inputW - filterSize) / stride + 1;
-        return new int[]{outputH, outputW};
-    }
 
     private long getFlopCountConv(int channels, int filter_size, int num_filters,
                                   int outShapeH, int outShapeW) {
