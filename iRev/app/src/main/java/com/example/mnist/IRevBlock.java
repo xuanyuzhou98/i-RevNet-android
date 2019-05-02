@@ -19,24 +19,26 @@ public class IRevBlock {
                 mult, WeightInit.XAVIER);
         graphBuilder
                 .addLayer("btnk", this.bottleneck, input2);
-        if (stride == 2) {
-            ConvolutionLayer psi = new PsiLayer.Builder()
-                    .BlockSize(stride)
-                    .nIn(in_ch)
-                    .nOut(out_ch)
-                    .build();
-            this.stride = stride;
-            graphBuilder
-                    .addLayer(prefix + "_psi1", psi, input1)
-                    .addLayer(prefix + "_psi2", psi, input2);
-            input1 = prefix + "_psi1";
-            input2 = prefix + "_psi2";
-        }
-        graphBuilder
-                .addVertex(prefix + "_y1", new ElementWiseVertex(ElementWiseVertex.Op.Add), "btnk", input1);
-        this.output = new String[2];
-        this.output[0] = input2;
-        this.output[1] = prefix + "_y1";
+//        if (stride == 2) {
+//            ConvolutionLayer psi = new PsiLayer.Builder()
+//                    .BlockSize(stride)
+//                    .nIn(in_ch)
+//                    .nOut(out_ch)
+//                    .build();
+//            this.stride = stride;
+//            graphBuilder
+//                    .addLayer(prefix + "_psi1", psi, input1)
+//                    .addLayer(prefix + "_psi2", psi, input2);
+//            input1 = prefix + "_psi1";
+//            input2 = prefix + "_psi2";
+//        }
+//        graphBuilder
+//                .addVertex(prefix + "_y1", new ElementWiseVertex(ElementWiseVertex.Op.Add), "btnk", input1);
+//        this.output = new String[2];
+//        this.output[0] = input2;
+//        this.output[1] = prefix + "_y1";
+        this.output = new String[1];
+        this.output[0] = "btnk";
 
     }
 

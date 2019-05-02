@@ -1,5 +1,7 @@
 package com.example.mnist;
 
+import android.util.Log;
+
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.samediff.SDLayerParams;
 import org.deeplearning4j.nn.conf.layers.samediff.SameDiffLayer;
@@ -53,19 +55,19 @@ public class Bottleneck extends SameDiffLayer {
         sd.var(conv1Weight);
 //        sdTest.var(conv2Weight);
 //        sdTest.var(conv3Weight);
+        //32 32 3
         Conv2DConfig c1 = Conv2DConfig.builder()
-                .kH(3).kW(3)
-                .pH(1).pW(1)
+                .kH(2).kW(2)
+                .pH(0).pW(0)
                 .dH(1).dW(1)
                 .isSameMode(false)
-                .dataFormat("NCHW")
                 .sH(this.stride).sW(this.stride)
                 .build();
         SDVariable conv1 = sd.cnn().conv2d("conv1", new SDVariable[]{layerInput, conv1Weight}, c1);
-//        SDVariable bn1 = sd.batchNorm("bn1", conv1, sd.mean(conv1, 1),
-//                                      sd.variance(conv1, false, 1), sd.scalar("conv1Gamma", 1.),
-//                                      sd.scalar("conv1Beta", 0.), 1e-5, 1);
-//        SDVariable act1 = sd.relu(bn1, 0.);
+        SDVariable bn1 = sd.nn().batchNorm("bn1", conv1, sd.mean(conv1, 1),
+                                      sd.variance(conv1, false, 1), sd.scalar("conv1Gamma", 1.),
+                                      sd.scalar("conv1Beta", 0.), 1e-5, 1);
+        SDVariable act1 = sd.nn().relu(bn1, 0.);
 //        Conv2DConfig c2 = Conv2DConfig.builder()
 //                .kH(3).kW(3)
 //                .pH(1).pW(1)
@@ -88,7 +90,7 @@ public class Bottleneck extends SameDiffLayer {
 //                .sH(1).sW(1)
 //                .build();
 //        SDVariable conv3 = sd.conv2d("output", new SDVariable[]{act2, conv3Weight}, c3);
-        return conv1;
+        return act1;
     }
 
     /**
@@ -108,7 +110,7 @@ public class Bottleneck extends SameDiffLayer {
 
     @Override
     public void defineParameters(SDLayerParams params) {
-        params.addWeightParam("conv1Weight", 3, 3, in_ch, out_ch);
+        params.addWeightParam("conv1Weight", 2, 2, in_ch, out_ch);
 //        params.addWeightParam("conv2Weight", 3, 3, out_ch/mult, out_ch/mult);
 //        params.addWeightParam("conv3Weight", 3, 3, out_ch/mult, out_ch);
     }
@@ -118,8 +120,9 @@ public class Bottleneck extends SameDiffLayer {
         //In this method: you define the type of output/activations, if appropriate, given the type of input to the layer
         //This is used in a few methods in DL4J to calculate activation shapes, memory requirements etc
         int[] hwd = ConvolutionUtils.getHWDFromInputType(inputType);
-        int outH = hwd[0] / this.stride;
-        int outW = hwd[1] / this.stride;
+        Log.d("input shape", hwd[0] + " " + hwd[1]);
+        int outH = (hwd[0] - 2) / this.stride + 1;
+        int outW = (hwd[1] - 2) / this.stride + 1;
         return InputType.convolutional(outH, outW, this.out_ch);
     }
 
@@ -139,7 +142,7 @@ public class Bottleneck extends SameDiffLayer {
         sd.execBackwards(placeHolders);
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
-            grads[i] = dy.mmul(sd.getGradForVariable(w_names[i]).getArr());
+            grads[i] = sd.getGradForVariable(w_names[i]).getArr();
         }
         return grads;
     }

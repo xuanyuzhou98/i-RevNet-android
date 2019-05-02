@@ -8,6 +8,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
+
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.autodiff.samediff.SDVariable;
 
@@ -77,479 +78,161 @@ public class MainActivity extends AppCompatActivity {
     private class Task implements Runnable {
         @Override
         public void run() {
-            for (int i = 0; i <= 10; i++) {
-                try {
+            try {
 //                    Thread.sleep(1000);
-                    int channels = 1;
-                    int init_ds = 2;
-                    int in_ch = channels * (int)Math.pow(2, init_ds);
-                    int n = in_ch / 2;
-                    int outputNum = 10; // number of output classes
-                    boolean first = true;
-                    final int numRows = 28;
-                    final int numColumns = 28;
-                    int rngSeed = 1234; // random number seed for reproducibility
-                    int numEpochs = 1; // number of epochs to perform
-                    Random randNumGen = new Random(rngSeed);
-                    int batchSize = 54; // batch size for each epoch
-                    int mult = 4;
+                int channels = 1;
+                int init_ds = 2;
+                int in_ch = channels * (int) Math.pow(2, init_ds);
+                int n = in_ch / 2;
+                int outputNum = 10; // number of output classes
+                boolean first = true;
+                final int numRows = 28;
+                final int numColumns = 28;
+                int rngSeed = 1234; // random number seed for reproducibility
+                int numEpochs = 1; // number of epochs to perform
+                Random randNumGen = new Random(rngSeed);
+                int batchSize = 54; // batch size for each epoch
+                int mult = 4;
 //            INDArray sample = Nd4j.ones(1, 3, 28, 28);
-                    try {
-                        if (!new File(basePath + "/mnist_png").exists()) {
-                            Log.d("Data download", "Data downloaded from " + dataUrl);
-                            String localFilePath = basePath + "/mnist_png.tar.gz";
-                            if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
-                                DataUtilities.extractTarGz(localFilePath, basePath);
-                            }
-                        }
-                        // vectorization of train data
-                        File trainData = new File(basePath + "/mnist_png/training");
-                        FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                        ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
-                        ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                        trainRR.initialize(trainSplit);
-                        DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
-                        // pixel values from 0-255 to 0-1 (min-max scaling)
-                        DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-                        scaler.fit(mnistTrain);
-                        mnistTrain.setPreProcessor(scaler);
+                try {
+//                        if (!new File(basePath + "/mnist_png").exists()) {
+//                            Log.d("Data download", "Data downloaded from " + dataUrl);
+//                            String localFilePath = basePath + "/mnist_png.tar.gz";
+//                            if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
+//                                DataUtilities.extractTarGz(localFilePath, basePath);
+//                            }
+//                        }
+//                        // vectorization of train data
+//                        File trainData = new File(basePath + "/mnist_png/training");
+//                        FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+//                        ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
+//                        ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+//                        trainRR.initialize(trainSplit);
+//                        DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
+//                        // pixel values from 0-255 to 0-1 (min-max scaling)
+//                        DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+//                        scaler.fit(mnistTrain);
+//                        mnistTrain.setPreProcessor(scaler);
+//
+//                        // vectorization of test data
+//                        File testData = new File(basePath + "/mnist_png/testing");
+//                        FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+//                        ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+//                        testRR.initialize(testSplit);
+//                        DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
+//                        mnistTest.setPreProcessor(scaler); // same normalization for better results
+//                        Log.d("build model", "Build model....");
+//
+//                        Map<Integer, Double> learningRateSchedule = new HashMap<>();
+//                        learningRateSchedule.put(0, 0.06);
+//                        learningRateSchedule.put(200, 0.05);
+//                        learningRateSchedule.put(600, 0.028);
+//                        learningRateSchedule.put(800, 0.0060);
+//                        learningRateSchedule.put(1000, 0.001);
 
-                        // vectorization of test data
-                        File testData = new File(basePath + "/mnist_png/testing");
-                        FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                        ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                        testRR.initialize(testSplit);
-                        DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
-                        mnistTest.setPreProcessor(scaler); // same normalization for better results
-                        Log.d("build model", "Build model....");
-
-                        Map<Integer, Double> learningRateSchedule = new HashMap<>();
-                        learningRateSchedule.put(0, 0.06);
-                        learningRateSchedule.put(200, 0.05);
-                        learningRateSchedule.put(600, 0.028);
-                        learningRateSchedule.put(800, 0.0060);
-                        learningRateSchedule.put(1000, 0.001);
-
-                        // Count FLOPS
-                        ConvolutionLayer PSIlayer = new PsiLayer.Builder()
-                                .BlockSize(init_ds)
-                                .nIn(channels)
-                                .nOut(in_ch)
-                                //.outWidth()
-                                .build();
-                        // TODO: verify PSIlayer shape.
+                    // Count FLOPS
+                    ConvolutionLayer PSIlayer = new PsiLayer.Builder()
+                            .BlockSize(init_ds)
+                            .nIn(channels)
+                            .nOut(in_ch)
+                            //.outWidth()
+                            .build();
+                    // TODO: verify PSIlayer shape.
 //                int[] PSIlayerShape = getConvLayerOutShape(numRows, numColumns, 3, 1);
 //                int PSIlayerChannels = in_ch;
 
-                        ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
-                                .seed(1234)
-                                .activation(Activation.IDENTITY)
-                                .updater(new Sgd(0.05))
-                                .weightInit(WeightInit.XAVIER)
-                                .l1(1e-7)
-                                .l2(5e-5)
-                                .graphBuilder();
-                        graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(28, 28, 1))
-                                .addLayer("init_psi", PSIlayer, "input")
-                                .addVertex("x0", new SubsetVertex(0, n-1), "init_psi")
-                                .addVertex("tilde_x0", new SubsetVertex(n, in_ch-1), "init_psi");
+                    ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
+                            .seed(1234)
+                            .activation(Activation.IDENTITY)
+                            .updater(new Sgd(0.05))
+                            .weightInit(WeightInit.XAVIER)
+                            .l1(1e-7)
+                            .l2(5e-5)
+                            .graphBuilder();
+                    graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(28, 28, 3));
+//                            .addLayer("init_psi", PSIlayer, "input")
+//                            //.addVertex("x0", new SubsetVertex(0, n - 1), "init_psi")
+//                            .addVertex("tilde_x0", new SubsetVertex(n, in_ch - 1), "init_psi");
 
-                        // layers
-                        BatchNormalization BNlayer = new BatchNormalization.Builder()
-                                .nIn(n * 4 * 2)
-                                .nOut(n * 4 * 2)
-                                .build();
+                    // layers
+                    BatchNormalization BNlayer = new BatchNormalization.Builder()
+                            .nIn(n * 4 * 2)
+                            .nOut(n * 4 * 2)
+                            .build();
 //                int[] BNlayerShape = PSIlayerShape;
-                        int BNlayerChannels = n * 4 * 2;
+                    int BNlayerChannels = n * 4 * 2;
 
-                        ActivationLayer ReLulayer = new ActivationLayer.Builder()
-                                .activation(Activation.RELU)
-                                .build();
+                    ActivationLayer ReLulayer = new ActivationLayer.Builder()
+                            .activation(Activation.RELU)
+                            .build();
 //                int[] ReLulayerShape = BNlayerShape;
-                        int ReLulayerChannels = BNlayerChannels;
+                    int ReLulayerChannels = BNlayerChannels;
 
-                        GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
-                                .poolingType(PoolingType.AVG)
-                                .build();
+                    GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
+                            .poolingType(PoolingType.AVG)
+                            .build();
 //                int[] poolOutShape = ReLulayerShape;
-                        int poolOutChannel = ReLulayerChannels;
+                    int poolOutChannel = ReLulayerChannels;
 
-                        DenseLayer Denselayer = new DenseLayer.Builder().
-                                activation(Activation.RELU)
-                                .nOut(outputNum)
-                                .build();
-                        int fcInShape = 1 * 16 * poolOutChannel;
-                        long flopFC = getFlopCountFC(fcInShape, outputNum);
-                        long flopFCBack = getFlopCountFCBackward(fcInShape, outputNum);
-                        Log.d("FC Flop count", "forward count " + flopFC);
-                        Log.d("FC Flop count", "backward count " + flopFCBack);
+                    DenseLayer Denselayer = new DenseLayer.Builder().
+                            activation(Activation.RELU)
+                            .nOut(outputNum)
+                            .build();
+//                    int fcInShape = 1 * 16 * poolOutChannel;
+//                    long flopFC = getFlopCountFC(fcInShape, outputNum);
+//                    long flopFCBack = getFlopCountFCBackward(fcInShape, outputNum);
+//                    Log.d("FC Flop count", "forward count " + flopFC);
+//                    Log.d("FC Flop count", "backward count " + flopFCBack);
+//
+//                    long totalForwardFLOPS = flopFC + bottleNeckForwardFLOPS;
+//                    long totalBackwardFLOPS = flopFCBack + bottleNeckBackwardFLOPS;
+//                    Log.d("TOTAL Flop count", "forward count " + totalForwardFLOPS);
+//                    Log.d("TOTAL Flop count", "backward count " + totalBackwardFLOPS);
 
-                        long totalForwardFLOPS = flopFC + bottleNeckForwardFLOPS;
-                        long totalBackwardFLOPS = flopFCBack + bottleNeckBackwardFLOPS;
-                        Log.d("TOTAL Flop count", "forward count " + totalForwardFLOPS);
-                        Log.d("TOTAL Flop count", "backward count " + totalBackwardFLOPS);
-
-                        IRevBlock irev1 = new IRevBlock(graph, 14, 14, n, n * 4, 2, first, 0,
-                                mult, "x0", "tilde_x0", "irev1");
-                        String[] output = irev1.getOutput();
-                        OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                                .nOut(outputNum)
-                                .activation(Activation.SOFTMAX)
-                                .build();
-
-                        graph.addVertex("merge", new MergeVertex(), output[0], output[1])
-                                .addLayer("outputBN", BNlayer, "merge")
-                                .addLayer("outputRelu", ReLulayer, "outputBN")
-                                .addLayer("outputPool", Poolinglayer, "outputRelu")
-                                .addLayer("outputProb", Denselayer, "outputPool")
-                                .addLayer("output", outputLayer, "outputProb")
-                                .setOutputs("output", "outputPool");
+                    IRevBlock irev1 = new IRevBlock(graph, 28, 28, 3, 6, 1, first, 0,
+                            mult, "x0", "input", "irev1");
+                    String[] output = irev1.getOutput();
+                    graph.setOutputs(output[0]);
+//                    OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+//                            .nOut(outputNum)
+//                            .activation(Activation.SOFTMAX)
+//                            .build();
+//
+//                    graph.addVertex("merge", new MergeVertex(), output[0], output[1])
+//                            .addLayer("outputBN", BNlayer, "merge")
+//                            .addLayer("outputRelu", ReLulayer, "outputBN")
+//                            .addLayer("outputPool", Poolinglayer, "outputRelu")
+//                            .addLayer("outputProb", Denselayer, "outputPool")
+//                            .addLayer("output", outputLayer, "outputProb")
+//                            .setOutputs("output", "outputPool");
 
 
-                        ComputationGraphConfiguration conf = graph.build();
-                        ComputationGraph model = new ComputationGraph(conf);
-                        model.init();
-                        Log.d("Output", "start output");
-                        INDArray[] TestArray = new INDArray[1];
-                        INDArray sample = Nd4j.create(1, 3, 28, 28);
-                        TestArray[0] = sample;
-                        INDArray[] outputs = model.output(TestArray);
-                        INDArray[] gradients = irev1.bottleneck.gradient(Nd4j.create(1, 6, 14, 14),
-                                Nd4j.create(1, 24, 7, 7));//Test Gradient method
-                        Log.d("Success!", gradients.toString());
-                    } catch(Exception e){
-                        e.printStackTrace();
-                    }
+                    ComputationGraphConfiguration conf = graph.build();
+                    ComputationGraph model = new ComputationGraph(conf);
+                    model.init();
+                    Log.d("Output", "start output");
+                    INDArray[] TestArray = new INDArray[1];
+                    INDArray sample = Nd4j.create(3, 3, 28, 28);
+                    TestArray[0] = sample;
+                    INDArray[] outputs = model.output(TestArray);
+                    INDArray[] gradients = irev1.bottleneck.gradient(Nd4j.create(3, 3, 28, 28),
+                            Nd4j.create(1, 24, 7, 7));//Test Gradient method
+                    Log.d("Success!", gradients.toString());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-            }
-        }
-
-    }
-
-    private class AsyncTaskRunner extends AsyncTask<String, Integer, String> {
-        // Runs in UI before background thread is called
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            ProgressBar bar = findViewById(R.id.progressBar);
-            bar.setVisibility(View.INVISIBLE);
-        }
-
-        // This is our main background thread for the neural net
-        @Override
-        protected String doInBackground(String... params) {
-            int channels = 1;
-            int init_ds = 2;
-            int in_ch = channels * (int)Math.pow(2, init_ds);
-            int n = in_ch / 2;
-            int outputNum = 10; // number of output classes
-            boolean first = true;
-            final int numRows = 28;
-            final int numColumns = 28;
-            int rngSeed = 1234; // random number seed for reproducibility
-            int numEpochs = 1; // number of epochs to perform
-            Random randNumGen = new Random(rngSeed);
-            int batchSize = 54; // batch size for each epoch
-            int mult = 4;
-//            INDArray sample = Nd4j.ones(1, 3, 28, 28);
-            try {
-                if (!new File(basePath + "/mnist_png").exists()) {
-                    Log.d("Data download", "Data downloaded from " + dataUrl);
-                    String localFilePath = basePath + "/mnist_png.tar.gz";
-                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
-                        DataUtilities.extractTarGz(localFilePath, basePath);
-                    }
-                }
-                // vectorization of train data
-                File trainData = new File(basePath + "/mnist_png/training");
-                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
-                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                trainRR.initialize(trainSplit);
-                DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
-                // pixel values from 0-255 to 0-1 (min-max scaling)
-                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-                scaler.fit(mnistTrain);
-                mnistTrain.setPreProcessor(scaler);
-
-                // vectorization of test data
-                File testData = new File(basePath + "/mnist_png/testing");
-                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                testRR.initialize(testSplit);
-                DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
-                mnistTest.setPreProcessor(scaler); // same normalization for better results
-                Log.d("build model", "Build model....");
-
-                Map<Integer, Double> learningRateSchedule = new HashMap<>();
-                learningRateSchedule.put(0, 0.06);
-                learningRateSchedule.put(200, 0.05);
-                learningRateSchedule.put(600, 0.028);
-                learningRateSchedule.put(800, 0.0060);
-                learningRateSchedule.put(1000, 0.001);
-
-                // Count FLOPS
-                ConvolutionLayer PSIlayer = new PsiLayer.Builder()
-                        .BlockSize(init_ds)
-                        .nIn(channels)
-                        .nOut(in_ch)
-                        //.outWidth()
-                        .build();
-                // TODO: verify PSIlayer shape.
-//                int[] PSIlayerShape = getConvLayerOutShape(numRows, numColumns, 3, 1);
-//                int PSIlayerChannels = in_ch;
-
-                ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
-                        .seed(1234)
-                        .activation(Activation.IDENTITY)
-                        .updater(new Sgd(0.05))
-                        .weightInit(WeightInit.XAVIER)
-                        .l1(1e-7)
-                        .l2(5e-5)
-                        .graphBuilder();
-                graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(28, 28, 1))
-                        .addLayer("init_psi", PSIlayer, "input")
-                        .addVertex("x0", new SubsetVertex(0, n-1), "init_psi")
-                        .addVertex("tilde_x0", new SubsetVertex(n, in_ch-1), "init_psi");
-
-                // layers
-                BatchNormalization BNlayer = new BatchNormalization.Builder()
-                        .nIn(n * 4 * 2)
-                        .nOut(n * 4 * 2)
-                        .build();
-//                int[] BNlayerShape = PSIlayerShape;
-                int BNlayerChannels = n * 4 * 2;
-
-                ActivationLayer ReLulayer = new ActivationLayer.Builder()
-                        .activation(Activation.RELU)
-                        .build();
-//                int[] ReLulayerShape = BNlayerShape;
-                int ReLulayerChannels = BNlayerChannels;
-
-                GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
-                        .poolingType(PoolingType.AVG)
-                        .build();
-//                int[] poolOutShape = ReLulayerShape;
-                int poolOutChannel = ReLulayerChannels;
-
-                DenseLayer Denselayer = new DenseLayer.Builder().
-                        activation(Activation.RELU)
-                        .nOut(outputNum)
-                        .build();
-                int fcInShape = 1 * 16 * poolOutChannel;
-                long flopFC = getFlopCountFC(fcInShape, outputNum);
-                long flopFCBack = getFlopCountFCBackward(fcInShape, outputNum);
-                Log.d("FC Flop count", "forward count " + flopFC);
-                Log.d("FC Flop count", "backward count " + flopFCBack);
-
-                long totalForwardFLOPS = flopFC + bottleNeckForwardFLOPS;
-                long totalBackwardFLOPS = flopFCBack + bottleNeckBackwardFLOPS;
-                Log.d("TOTAL Flop count", "forward count " + totalForwardFLOPS);
-                Log.d("TOTAL Flop count", "backward count " + totalBackwardFLOPS);
-
-                IRevBlock irev1 = new IRevBlock(graph, 14, 14, n, n * 4, 2, first, 0,
-                        mult, "x0", "tilde_x0", "irev1");
-                String[] output = irev1.getOutput();
-                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                        .nOut(outputNum)
-                        .activation(Activation.SOFTMAX)
-                        .build();
-
-                graph.addVertex("merge", new MergeVertex(), output[0], output[1])
-                        .addLayer("outputBN", BNlayer, "merge")
-                        .addLayer("outputRelu", ReLulayer, "outputBN")
-                        .addLayer("outputPool", Poolinglayer, "outputRelu")
-                        .addLayer("outputProb", Denselayer, "outputPool")
-                        .addLayer("output", outputLayer, "outputProb")
-                        .setOutputs("output", "outputPool");
-
-
-                ComputationGraphConfiguration conf = graph.build();
-                ComputationGraph model = new ComputationGraph(conf);
-                model.init();
-                Log.d("Output", "start output");
-                INDArray[] TestArray = new INDArray[1];
-                INDArray sample = Nd4j.create(1, 3, 28, 28);
-                TestArray[0] = sample;
-                INDArray[] outputs = model.output(TestArray);
-                INDArray[] gradients = irev1.bottleneck.gradient(Nd4j.create(1, 6, 14, 14),
-                        Nd4j.create(1, 24, 7, 7));//Test Gradient method
-                Log.d("Success!", gradients.toString());
-
-//                model.setListeners(new ScoreIterationListener(10));
-//                Log.d("Total num of params", "Total num of params" + model.numParams());
-
-
-
-//                Log.d("train model", "Train model....");
-////                INDArray[] outs = model.output(sample);
-////                Log.d("my shape", Arrays.toString(outs[1].shape()));
-//                for(int l=0; l<=numEpochs; l++) {
-//                    model.fit(mnistTrain);
-//                }
-//
-//                Log.d("evaluate model", "Evaluate model....");
-//                Evaluation eval = new Evaluation(outputNum); //create an evaluation object with 10 possible classes
-//                while(mnistTest.hasNext()){
-//                    DataSet next = mnistTest.next();
-//                    INDArray testOutput = model.output(next.getFeatures())[0]; //get the networks prediction
-//                    eval.eval(next.getLabels(), testOutput); //check the prediction against the true class
-//                }
-            }catch(Exception e){
+            } catch (Exception e) {
                 e.printStackTrace();
             }
-            return "";
+
         }
-
-//        protected String bottleneckBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder,
-//                                         int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
-//                                         int mult, String input, String prefix) {
-//            if (!first) {
-//                graphBuilder
-//                        .addLayer(prefix + "_bn0", new BatchNormalization.Builder()
-//                                .nIn(out_ch / mult)
-//                                .nOut(out_ch / mult)
-//                                .build(), input)
-//                        .addLayer(prefix + "_act0", new ActivationLayer.Builder().activation(Activation.RELU).build(),
-//                                prefix + "_bn0");
-//                input = prefix + "_act0";
-//            }
-//
-//            // layers
-//            ConvolutionLayer conv1 = new ConvolutionLayer.Builder(3, 3)
-//                    .nIn(in_ch)
-//                    .stride(stride, stride)
-//                    .padding(1, 1)
-//                    .nOut(out_ch/mult)
-//                    .build();
-//            BatchNormalization bn1 = new BatchNormalization.Builder()
-//                    .nIn(out_ch/mult)
-//                    .nOut(out_ch/mult)
-//                    .build();
-//            ActivationLayer act1 = new ActivationLayer.Builder()
-//                    .activation(Activation.RELU)
-//                    .build();
-//            ConvolutionLayer conv2 = new ConvolutionLayer.Builder(3, 3)
-//                    .nIn(out_ch/mult)
-//                    .padding(1, 1)
-//                    .nOut(out_ch/mult)
-//                    .build();
-//            DropoutLayer drop2 =  new DropoutLayer.Builder(1-dropout_rate)
-//                    .build();
-//            BatchNormalization bn2 = new BatchNormalization.Builder()
-//                    .nIn(out_ch / mult)
-//                    .nOut(out_ch / mult)
-//                    .build();
-//            ActivationLayer act2 = new ActivationLayer.Builder().activation(Activation.RELU).build();
-//            ConvolutionLayer conv3 = new ConvolutionLayer.Builder(3, 3)
-//                    .nIn(out_ch / mult)
-//                    .padding(1, 1)
-//                    .nOut(out_ch)
-//                    .build();
-//
-//            graphBuilder
-//                    .addLayer(prefix+"_conv1", conv1, input)
-//                    .addLayer(prefix+"_bn1", bn1, prefix+"_conv1")
-//                    .addLayer(prefix+"_act1", act1, prefix+"_bn1")
-//                    .addLayer(prefix+"_conv2", conv2, prefix + "_act1")
-//                    .addLayer(prefix+"_drop2", drop2, prefix + "_conv2")
-//                    .addLayer(prefix+"_bn2", bn2, prefix + "_drop2")
-//                    .addLayer(prefix+"_act2", act2,
-//                            prefix + "_bn2")
-//                    .addLayer(prefix, conv3, prefix + "_act2");
-//
-//            int batchSize = 54;
-//            int H = 28;
-//            int W = 28;
-//
-//            int[] conv1OutShape = getConvLayerOutShape(H, W, 3, stride);
-//            int conv1OutChannels = out_ch/mult;
-//            int conv1InChannels = in_ch;
-//            int flopConv1 = getFlopCountConv(conv1InChannels, 3, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
-//            int flopConv1Back = getFlopCountConvBackward(conv1InChannels, 3, conv1OutChannels, conv1OutShape[0], conv1OutShape[1]);
-//
-//            int[] bn1OutShape = getConvLayerOutShape(conv1OutShape[0], conv1OutShape[1], 2, 2);
-//            int bn1OutChannels = conv1OutChannels;
-//
-//            int[] conv2OutShape = getConvLayerOutShape(H, W, 3, stride);
-//            int conv2OutChannels = out_ch/mult;
-//            int conv2InChannels = out_ch/mult;
-//            int flopConv2 = getFlopCountConv(conv2InChannels, 3, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
-//            int flopConv2Back = getFlopCountConvBackward(conv2InChannels, 3, conv2OutChannels, conv2OutShape[0], conv2OutShape[1]);
-//
-//            int[] conv3OutShape = getConvLayerOutShape(H, W, 3, stride);
-//            int conv3OutChannels = out_ch;
-//            int conv3InChannels = out_ch/mult;
-//            int flopConv3 = getFlopCountConv(conv3InChannels, 3, conv3OutChannels, conv3OutShape[0], conv3OutShape[1]);
-//            int flopConv3Back = getFlopCountConvBackward(conv3InChannels, 3, conv3OutChannels, conv3OutShape[0], conv3OutShape[1]);
-//
-//            int totalFlopsForward = batchSize * (flopConv1 + flopConv2 + flopConv3);
-//            int totalFlopsBackward = batchSize * (flopConv1Back + flopConv2Back + flopConv3Back);
-//
-//            Log.d("BottleNeck Flop count", "batch size " + batchSize);
-//            Log.d("BottleNeck Flop count", "forward count " + totalFlopsForward);
-//            Log.d("BottleNeck Flop count", "backward count " + totalFlopsBackward);
-//            bottleNeckForwardFLOPS = totalFlopsForward;
-//            bottleNeckBackwardFLOPS = totalFlopsBackward;
-//
-//            return prefix;
-//        }
-//
-//        protected String[] iRevBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder,
-//                                     int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
-//                                     int mult, String input1, String input2, String prefix) {
-//            String Fx2 = bottleneckBlock(graphBuilder, in_ch, out_ch, stride, first, dropout_rate,
-//                    mult, input2, prefix + "_btnk");
-//            if (stride == 2) {
-//                graphBuilder
-//                        .addLayer(prefix + "_psi1", new PsiLayer.Builder()
-//                                .BlockSize(stride)
-//                                .nIn(in_ch)
-//                                .nOut(out_ch)
-//                                .build(), input1)
-//                        .addLayer(prefix + "_psi2", new PsiLayer.Builder()
-//                                .BlockSize(stride)
-//                                .nIn(in_ch)
-//                                .nOut(out_ch)
-//                                .build(), input2);
-//                input1 = prefix + "_psi1";
-//                input2 = prefix + "_psi2";
-//            }
-//            graphBuilder
-//                    .addVertex(prefix + "_y1", new ElementWiseVertex(ElementWiseVertex.Op.Add), Fx2, input1);
-//            String[] output = new String[2];
-//            output[0] = input2;
-//            output[1] = prefix + "_y1";
-//            return output;
-//        }
-
-        //This is called from background thread but runs in UI for a progress indicator
-        @Override
-        protected void onProgressUpdate(Integer... values) {
-            super.onProgressUpdate(values);
-        }
-
-        //This block executes in UI when background thread finishes
-        //This is where we update the UI with our classification results
-        @Override
-        protected void onPostExecute(String result) {
-            super.onPostExecute(result);
-
-
-            //Hide the progress bar now that we are finished
-            ProgressBar bar = findViewById(R.id.progressBar);
-            bar.setVisibility(View.INVISIBLE);
-        }
-
 
     }
 
     private int[] getConvLayerOutShape(int inputH, int inputW, int filterSize, int stride) {
         int outputH = (inputH - filterSize) / stride + 1;
         int outputW = (inputW - filterSize) / stride + 1;
-        return new int[] {outputH, outputW};
+        return new int[]{outputH, outputW};
     }
 
     private long getFlopCountConv(int channels, int filter_size, int num_filters,
@@ -558,7 +241,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private long getFlopCountFC(int inputSize, int outputSize) {
-        return  (2 * inputSize - 1) * outputSize;
+        return (2 * inputSize - 1) * outputSize;
     }
 
     private long getFlopCountConvBackward(int channels, int filter_size, int num_filters,
