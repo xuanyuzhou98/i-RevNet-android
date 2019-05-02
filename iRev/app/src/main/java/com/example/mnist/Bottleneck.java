@@ -61,6 +61,7 @@ public class Bottleneck extends SameDiffLayer {
         sd.var(conv1Weight);
 //        sdTest.var(conv2Weight);
 //        sdTest.var(conv3Weight);
+
         //32 32 3
         Conv2DConfig c1 = Conv2DConfig.builder()
                 .kH(conv1Stride).kW(conv1Stride)
