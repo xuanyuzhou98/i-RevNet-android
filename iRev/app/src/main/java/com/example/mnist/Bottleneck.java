@@ -54,72 +54,41 @@ public class Bottleneck extends SameDiffLayer {
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
-        int conv1Stride = 2;
+        int convStride = 3;
         SDVariable conv1Weight = paramTable.get("conv1Weight");
-//        SDVariable conv2Weight = paramTable.get("conv1Weight");
-//        SDVariable conv3Weight = paramTable.get("conv1Weight");
+        SDVariable conv2Weight = paramTable.get("conv2Weight");
+        SDVariable conv3Weight = paramTable.get("conv3Weight");
         sd.var(conv1Weight);
-//        sdTest.var(conv2Weight);
-//        sdTest.var(conv3Weight);
+        sd.var(conv2Weight);
+        sd.var(conv3Weight);
 
-        //32 32 3
         Conv2DConfig c1 = Conv2DConfig.builder()
-                .kH(conv1Stride).kW(conv1Stride)
+                .kH(convStride).kW(convStride)
                 .pH(0).pW(0)
                 .dH(1).dW(1)
                 .isSameMode(false)
                 .sH(this.stride).sW(this.stride)
                 .build();
         SDVariable conv1 = sd.cnn().conv2d("conv1", new SDVariable[]{layerInput, conv1Weight}, c1);
-        // conv1 shape
-        int[] conv1OutShape = Utils.getConvLayerOutShape(this.height, this.width, conv1Stride, this.stride);
-        int conv1OutChannel = this.out_ch;
-        // use reshapedConv1 to do batchNorm
-        SDVariable reshapedConv1 = conv1.permute(0,2,3,1);
-        reshapedConv1 = reshapedConv1.reshape(conv1OutShape[0]*conv1OutShape[1], conv1OutChannel);
-
-        SDVariable bn1 = sd.nn().batchNorm("bn1", reshapedConv1,
-                                        sd.mean(reshapedConv1, 1),
-                                        sd.variance(reshapedConv1, false, 1),
-                                        sd.scalar("conv1Gamma", 1.),
-                                        sd.scalar("conv1Beta", 0.), 1e-5, 1);
-
-        int[] bn1OutShape = conv1OutShape;
-        int bn1OutChannel = conv1OutChannel;
-
-        // use reshapedbn1 to do relu
-        SDVariable reshapedBn1 = bn1.reshape(bn1OutShape[0]*bn1OutShape[1], bn1OutChannel);
-        reshapedBn1 = reshapedBn1.permute(0,3,1,2);
-
-        // relu
-        SDVariable act1 = sd.nn().relu(reshapedBn1, 0.);
-
-        int[] reluOutShape = bn1OutShape;
-        int reluOutChannel = bn1OutChannel;
-
-//        Conv2DConfig c2 = Conv2DConfig.builder()
-//                .kH(3).kW(3)
-//                .pH(1).pW(1)
-//                .dH(1).dW(1)
-//                .isSameMode(false)
-//                .dataFormat("NCHW")
-//                .sH(1).sW(1)
-//                .build();
-//        SDVariable conv2 = sd.conv2d("conv2", new SDVariable[]{act1, conv2Weight}, c2);
-//        SDVariable bn2 = sd.batchNorm("bn2", conv2, sd.mean(conv2, 1),
-//                sd.variance(conv2, false, 1), sd.scalar("conv2Gamma", 1.),
-//                sd.scalar("conv2Beta", 0.), 1e-5, 1);
-//        SDVariable act2 = sd.relu(bn2, 0.);
-//        Conv2DConfig c3 = Conv2DConfig.builder()
-//                .kH(3).kW(3)
-//                .pH(1).pW(1)
-//                .dH(1).dW(1)
-//                .isSameMode(false)
-//                .dataFormat("NCHW")
-//                .sH(1).sW(1)
-//                .build();
-//        SDVariable conv3 = sd.conv2d("output", new SDVariable[]{act2, conv3Weight}, c3);
-        return act1;
+        SDVariable act1 = sd.nn().relu("act1", conv1, 0.);
+        Conv2DConfig c2 = Conv2DConfig.builder()
+                .kH(convStride).kW(convStride)
+                .pH(0).pW(0)
+                .dH(1).dW(1)
+                .isSameMode(false)
+                .sH(this.stride).sW(this.stride)
+                .build();
+        SDVariable conv2 = sd.cnn().conv2d("conv2", new SDVariable[]{act1, conv2Weight}, c2);
+        SDVariable act2 = sd.nn().relu("act2", conv2, 0.);
+        Conv2DConfig c3 = Conv2DConfig.builder()
+                .kH(convStride).kW(convStride)
+                .pH(0).pW(0)
+                .dH(1).dW(1)
+                .isSameMode(false)
+                .sH(this.stride).sW(this.stride)
+                .build();
+        SDVariable conv3 = sd.cnn().conv2d("conv3", new SDVariable[]{act2, conv3Weight}, c3);
+        return conv3;
     }
 
     /**
@@ -131,17 +100,17 @@ public class Bottleneck extends SameDiffLayer {
      */
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
-        initWeights(in_ch, out_ch, weightInit, params.get("conv1Weight"));
-//        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("conv2Weight"));
-//        initWeights(out_ch/mult, out_ch, weightInit, params.get("conv3Weight"));
+        initWeights(in_ch, out_ch/mult, weightInit, params.get("conv1Weight"));
+        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("conv2Weight"));
+        initWeights(out_ch/mult, out_ch, weightInit, params.get("conv3Weight"));
     }
 
 
     @Override
     public void defineParameters(SDLayerParams params) {
-        params.addWeightParam("conv1Weight", 2, 2, in_ch, out_ch);
-//        params.addWeightParam("conv2Weight", 3, 3, out_ch/mult, out_ch/mult);
-//        params.addWeightParam("conv3Weight", 3, 3, out_ch/mult, out_ch);
+        params.addWeightParam("conv1Weight", 3, 3, in_ch, out_ch/mult);
+        params.addWeightParam("conv2Weight", 3, 3, out_ch/mult, out_ch/mult);
+        params.addWeightParam("conv3Weight", 3, 3, out_ch/mult, out_ch);
     }
 
     @Override
@@ -150,8 +119,12 @@ public class Bottleneck extends SameDiffLayer {
         //This is used in a few methods in DL4J to calculate activation shapes, memory requirements etc
         int[] hwd = ConvolutionUtils.getHWDFromInputType(inputType);
         Log.d("input shape", hwd[0] + " " + hwd[1]);
-        int outH = (hwd[0] - 2) / this.stride + 1;
-        int outW = (hwd[1] - 2) / this.stride + 1;
+        int outH = (hwd[0] - 3) / this.stride + 1;
+        int outW = (hwd[1] - 3) / this.stride + 1;
+        outH = (outH - 3) / this.stride + 1;
+        outW = (outW - 3) / this.stride + 1;
+        outH = (outH - 3) / this.stride + 1;
+        outW = (outW - 3) / this.stride + 1;
         return InputType.convolutional(outH, outW, this.out_ch);
     }
 
