@@ -69,6 +69,6 @@ public class PermuteLayer extends SameDiffLayer {
         outputShape[0] = dhw[axis1 - 1];
         outputShape[1] = dhw[axis2 - 1];
         outputShape[2] = dhw[axis3 - 1];
-        return InputType.convolutional(outputShape[0], outputShape[1], outputShape[2]);
+        return InputType.convolutional(outputShape[1], outputShape[2], outputShape[0]);
     }
 }

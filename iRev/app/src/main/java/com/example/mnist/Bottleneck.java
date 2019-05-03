@@ -18,19 +18,16 @@ import java.util.Map;
 
 public class Bottleneck extends SameDiffLayer {
     private int stride;
-    private float dpRate;
     private int in_ch;
     private int out_ch;
     private int mult;
-    private boolean first;
     private Map<String, SDVariable> paramTable;
 
-    public Bottleneck(int in_ch, int out_ch, int stride, boolean first,
+    public Bottleneck(int in_ch, int out_ch, int stride,
                       int mult, WeightInit weightInit) {
         this.in_ch = in_ch;
         this.out_ch = out_ch;
         this.stride = stride;
-        this.first = first;
         this.mult = mult;
         this.weightInit = weightInit;
     }
@@ -59,7 +56,7 @@ public class Bottleneck extends SameDiffLayer {
 
         Conv2DConfig c1 = Conv2DConfig.builder()
                 .kH(convStride).kW(convStride)
-                .pH(0).pW(0)
+                .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
                 .sH(this.stride).sW(this.stride)
@@ -68,19 +65,19 @@ public class Bottleneck extends SameDiffLayer {
         SDVariable act1 = sd.nn().relu("act1", conv1, 0.);
         Conv2DConfig c2 = Conv2DConfig.builder()
                 .kH(convStride).kW(convStride)
-                .pH(0).pW(0)
+                .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
-                .sH(this.stride).sW(this.stride)
+                .sH(1).sW(1)
                 .build();
         SDVariable conv2 = sd.cnn().conv2d("conv2", new SDVariable[]{act1, conv2Weight}, c2);
         SDVariable act2 = sd.nn().relu("act2", conv2, 0.);
         Conv2DConfig c3 = Conv2DConfig.builder()
                 .kH(convStride).kW(convStride)
-                .pH(0).pW(0)
+                .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
-                .sH(this.stride).sW(this.stride)
+                .sH(1).sW(1)
                 .build();
         SDVariable conv3 = sd.cnn().conv2d("conv3", new SDVariable[]{act2, conv3Weight}, c3);
         return conv3;
@@ -95,7 +92,7 @@ public class Bottleneck extends SameDiffLayer {
      */
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
-        initWeights(in_ch, out_ch/mult, weightInit, params.get("conv1Weight"));
+        initWeights(in_ch/2, out_ch/mult, weightInit, params.get("conv1Weight"));
         initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("conv2Weight"));
         initWeights(out_ch/mult, out_ch, weightInit, params.get("conv3Weight"));
     }
@@ -103,7 +100,7 @@ public class Bottleneck extends SameDiffLayer {
 
     @Override
     public void defineParameters(SDLayerParams params) {
-        params.addWeightParam("conv1Weight", 3, 3, in_ch, out_ch/mult);
+        params.addWeightParam("conv1Weight", 3, 3, in_ch/2, out_ch/mult);
         params.addWeightParam("conv2Weight", 3, 3, out_ch/mult, out_ch/mult);
         params.addWeightParam("conv3Weight", 3, 3, out_ch/mult, out_ch);
     }
@@ -113,13 +110,12 @@ public class Bottleneck extends SameDiffLayer {
         //In this method: you define the type of output/activations, if appropriate, given the type of input to the layer
         //This is used in a few methods in DL4J to calculate activation shapes, memory requirements etc
         int[] hwd = ConvolutionUtils.getHWDFromInputType(inputType);
-        Log.d("input shape", hwd[0] + " " + hwd[1]);
-        int outH = (hwd[0] - 3) / this.stride + 1;
-        int outW = (hwd[1] - 3) / this.stride + 1;
-        outH = (outH - 3) / this.stride + 1;
-        outW = (outW - 3) / this.stride + 1;
-        outH = (outH - 3) / this.stride + 1;
-        outW = (outW - 3) / this.stride + 1;
+        int outH = (hwd[0] - 3 + 2 * 1) / this.stride + 1;
+        int outW = (hwd[1] - 3 + 2 * 1) / this.stride + 1;
+        outH = (outH - 3 + 2 * 1) / this.stride + 1;
+        outW = (outW - 3 + 2 * 1) / this.stride + 1;
+        outH = (outH - 3 + 2 * 1) / this.stride + 1;
+        outW = (outW - 3 + 2 * 1) / this.stride + 1;
         return InputType.convolutional(outH, outW, this.out_ch);
     }
 

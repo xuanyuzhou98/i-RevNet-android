@@ -107,17 +107,17 @@ public class MainActivity extends AppCompatActivity {
                             .l1(1e-7)
                             .l2(5e-5)
                             .graphBuilder();
-                    graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(numRows, numColumns, channels))
+                    graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(numRows, numColumns, channels)) //(3, 3, 32, 32)
                             .addLayer("init_psi", new PsiLayer.Builder()
                                     .BlockSize(init_ds)
                                     .nIn(channels)
                                     .nOut(in_ch)
                                     .build(), "input")
-                            .addVertex("x0", new SubsetVertex(0, n-1), "init_psi")
-                            .addVertex("tilde_x0", new SubsetVertex(n, in_ch-1), "init_psi");
+                            .addVertex("x0", new SubsetVertex(n-1, 0), "init_psi") //(3, 6, 16, 16)
+                            .addVertex("tilde_x0", new SubsetVertex(in_ch-1, n), "init_psi"); //(3, 6, 16, 16)
                     ActivationLayer relu = new ActivationLayer.Builder()
                             .activation(Activation.RELU)
-                            .build();
+                            .build();//(3, 12, 16, 16)
                     graph.addLayer("firstRelu", relu, "tilde_x0");
                     int in_ch_Block = in_ch;
                     String input1 = "x0";
@@ -129,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
                             if (j == 0) {
                                 stride = nStrides[i];
                             }
-                            IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride, first,
+                            IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride,
                                     mult, input1, input2, String.valueOf(i) + String.valueOf(j));
                             String[] outputs = innerIRevBlock.getOutput();
                             input1 = outputs[0];
@@ -169,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
                             .addLayer("outputPool", Poolinglayer, "outputRelu")
                             .addLayer("outputProb", Denselayer, "outputPool")
                             .addLayer("output", outputLayer, "outputProb")
-                            .setOutputs("output", "outputPool");
+                            .setOutputs("output");
 
                     ComputationGraphConfiguration conf = graph.build();
                     ComputationGraph model = new ComputationGraph(conf);
