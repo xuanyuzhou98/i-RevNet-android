@@ -86,11 +86,10 @@ public class MainActivity extends AppCompatActivity {
                 int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
-                int init_ds = 2;
+                int init_ds = 0;
                 int in_ch = channels * (int) Math.pow(2, init_ds);
                 int n = in_ch / 2;
                 int outputNum = 10; // number of output classes
-                boolean first = true;
                 final int numRows = 32;
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
@@ -107,14 +106,18 @@ public class MainActivity extends AppCompatActivity {
                             .l1(1e-7)
                             .l2(5e-5)
                             .graphBuilder();
-                    graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(numRows, numColumns, channels)) //(3, 3, 32, 32)
-                            .addLayer("init_psi", new PsiLayer.Builder()
-                                    .BlockSize(init_ds)
-                                    .nIn(channels)
-                                    .nOut(in_ch)
-                                    .build(), "input")
-                            .addVertex("x0", new SubsetVertex(n-1, 0), "init_psi") //(3, 6, 16, 16)
-                            .addVertex("tilde_x0", new SubsetVertex(in_ch-1, n), "init_psi"); //(3, 6, 16, 16)
+                    graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels)); //(3, 3, 32, 32)
+                    String lastLayer = "input";
+                    if (init_ds != 0) {
+                        graph.addLayer("init_psi", new PsiLayer.Builder()
+                                .BlockSize(init_ds)
+                                .nIn(channels)
+                                .nOut(in_ch)
+                                .build(), "input");
+                        lastLayer = "init_psi";
+                    }
+                    graph.addVertex("x0", new SubsetVertex(n-1, 0), lastLayer) //(3, 6, 16, 16)
+                            .addVertex("tilde_x0", new SubsetVertex(in_ch-1, n), lastLayer); //(3, 6, 16, 16)
                     ActivationLayer relu = new ActivationLayer.Builder()
                             .activation(Activation.RELU)
                             .build();//(3, 12, 16, 16)
