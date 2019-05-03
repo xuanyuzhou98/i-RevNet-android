@@ -44,8 +44,10 @@ import org.nd4j.shade.jackson.databind.ser.impl.IteratorSerializer;
 
 import java.io.File;
 import java.lang.Math;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -80,6 +82,9 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             try {
 //                    Thread.sleep(1000);
+                int[] nChannels = new int[]{16, 64, 256};
+                int[] nBlocks = new int[]{18, 18, 18};
+                int[] nStrides = new int[]{1, 2, 2};
                 int channels = 1;
                 int init_ds = 2;
                 int in_ch = channels * (int) Math.pow(2, init_ds);
@@ -149,6 +154,23 @@ public class MainActivity extends AppCompatActivity {
                             .l1(1e-7)
                             .l2(5e-5)
                             .graphBuilder();
+
+
+                    int in_ch_Block = in_ch;
+                    List<IRevBlock> blockList = new ArrayList<>();
+                    for (int i = 0; i < 3; i++) { // for each stage
+                        for (int j = 0; j < nBlocks[i]; j++) { // for each block in the stage
+                            // create new IRevBlock
+                            IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], nStrides[i],first, mult, String input1, String input2, String prefix);
+                            // append to list
+                            blockList.add(innerIRevBlock);
+                            // update
+                            in_ch_Block = 2 * nChannels[i];
+                            first = false;
+                        }
+                    }
+
+
                     graph.addInputs("input").setInputTypes(InputType.convolutionalFlat(28, 28, 3));
 //                            .addLayer("init_psi", PSIlayer, "input")
 //                            //.addVertex("x0", new SubsetVertex(0, n - 1), "init_psi")
@@ -189,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
 //                    Log.d("TOTAL Flop count", "forward count " + totalForwardFLOPS);
 //                    Log.d("TOTAL Flop count", "backward count " + totalBackwardFLOPS);
 
-                    IRevBlock irev1 = new IRevBlock(graph, 28, 28, 3, 6, 1, first, 0,
+                    IRevBlock irev1 = new IRevBlock(graph, 3, 6, 1, first,
                             mult, "x0", "input", "irev1");
                     String[] output = irev1.getOutput();
                     graph.setOutputs(output[0]);

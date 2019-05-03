@@ -17,8 +17,6 @@ import java.util.Map;
 
 
 public class Bottleneck extends SameDiffLayer {
-    private int height;
-    private int width;
     private int stride;
     private float dpRate;
     private int in_ch;
@@ -27,15 +25,12 @@ public class Bottleneck extends SameDiffLayer {
     private boolean first;
     private Map<String, SDVariable> paramTable;
 
-    public Bottleneck(int height, int width, int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
+    public Bottleneck(int in_ch, int out_ch, int stride, boolean first,
                       int mult, WeightInit weightInit) {
-        this.height = height;
-        this.width = width;
         this.in_ch = in_ch;
         this.out_ch = out_ch;
         this.stride = stride;
         this.first = first;
-        this.dpRate = dropout_rate;
         this.mult = mult;
         this.weightInit = weightInit;
     }

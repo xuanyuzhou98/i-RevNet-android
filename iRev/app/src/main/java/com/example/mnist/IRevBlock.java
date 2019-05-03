@@ -13,9 +13,9 @@ public class IRevBlock {
 
 
     public IRevBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder,
-                     int height, int width, int in_ch, int out_ch, int stride, boolean first, float dropout_rate,
+                     int in_ch, int out_ch, int stride, boolean first,
                      int mult, String input1, String input2, String prefix) {
-        this.bottleneck = new Bottleneck(height, width, in_ch, out_ch, stride, first, dropout_rate,
+        this.bottleneck = new Bottleneck(in_ch, out_ch, stride, first,
                 mult, WeightInit.XAVIER);
         graphBuilder
                 .addLayer("btnk", this.bottleneck, input2);
