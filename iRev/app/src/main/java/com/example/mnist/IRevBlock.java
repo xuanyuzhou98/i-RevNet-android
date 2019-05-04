@@ -32,16 +32,14 @@ public class IRevBlock {
         this.bottleneck = new Bottleneck(in_ch/2, out_ch, stride,
                 mult, WeightInit.XAVIER); // (3, 16, 32, 32)
         if (stride == 1 && pad != 0) {
-            Log.d("stride", " 1");
             graphBuilder.addVertex(prefix + "merge", new MergeVertex(), input1, input2) //(3, 3, 32, 32)
                         //injective padding
                         .addLayer(prefix + "permute1", new PermuteLayer(0, 2, 3, 1), prefix + "merge")
                         .addLayer(prefix + "zeroPadding", new ZeroPaddingLayer(0, 0, 0, pad),prefix + "permute1")
                         .addLayer(prefix + "permute2", new PermuteLayer(0, 3, 1, 2), prefix + "zeroPadding") //(3, 32, 32, 32)
                         //finish injective padding
-                        .addVertex(prefix + "x1", new SubsetVertexN(out_ch - 1, 0), prefix + "permute2") // (3, 16, 32, 32)
-                        .addVertex(prefix + "x2", new SubsetVertexN(2 * out_ch - 1, out_ch), prefix + "permute2"); // (3, 16, 32, 32)
-            Log.d("stride", " 1 good");
+                        .addVertex(prefix + "x1", new SubsetVertexN(0, out_ch - 1), prefix + "permute2") // (3, 16, 32, 32)
+                        .addVertex(prefix + "x2", new SubsetVertexN(out_ch, 2 * out_ch - 1), prefix + "permute2"); // (3, 16, 32, 32)
             input1 = prefix + "x1";
             input2 = prefix + "x2";
         }

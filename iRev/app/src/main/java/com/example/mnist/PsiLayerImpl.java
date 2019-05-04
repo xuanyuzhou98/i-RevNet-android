@@ -27,17 +27,17 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
 
     @Override
     public INDArray activate(boolean training, LayerWorkspaceMgr workspaceMgr) {
-        assertInputSet(false);
+        assertInputSet(false); //input (3, 16, 32, 3)
         long blockSizeSq = this.blockSize * this.blockSize;
         input = input.permute(0, 2, 3, 1);
         long[] shape = input.shape();
-        long batchSize = shape[0];
-        long sHeight = shape[1];
-        long sWidth = shape[2];
-        long sDepth = shape[3];
-        long dDepth = sDepth * blockSizeSq; //new depth
-        long dHeight = sHeight / this.blockSize; // new height
-        int numOfSplits = (int)sWidth / this.blockSize; //
+        long batchSize = shape[0]; // 3
+        long sHeight = shape[1]; // 16
+        long sWidth = shape[2]; // 32
+        long sDepth = shape[3];  // 3
+        long dDepth = sDepth * blockSizeSq; // new depth 14
+        long dHeight = sHeight / this.blockSize; // new height 8
+        int numOfSplits = (int)sWidth / this.blockSize; // 16
         INDArray[] t_1 = Utils.split(input, numOfSplits, 2);
         INDArray[] stack = new INDArray[numOfSplits];
         for (int i = 0; i < numOfSplits; i += 1) {
@@ -49,7 +49,7 @@ public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.Co
         output = output.permute(0, 3, 1, 2);
         long[] outShape = output.shape();
         INDArray out = workspaceMgr.create(ArrayType.ACTIVATIONS, this.dataType, outShape);
-        out.assign(output);
+        out.assign(output); // (3, 8, 16, 12)
         return out;
     }
 

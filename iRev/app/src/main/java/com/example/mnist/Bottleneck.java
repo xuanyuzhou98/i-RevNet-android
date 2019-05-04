@@ -100,7 +100,7 @@ public class Bottleneck extends SameDiffLayer {
 
     @Override
     public void defineParameters(SDLayerParams params) {
-        params.addWeightParam("conv1Weight", 3, 3, in_ch/2, out_ch/mult);
+        params.addWeightParam("conv1Weight", 3, 3, in_ch, out_ch/mult);
         params.addWeightParam("conv2Weight", 3, 3, out_ch/mult, out_ch/mult);
         params.addWeightParam("conv3Weight", 3, 3, out_ch/mult, out_ch);
     }

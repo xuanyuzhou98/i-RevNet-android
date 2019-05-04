@@ -16,7 +16,6 @@
 
 package com.example.mnist;
 
-import lombok.Data;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.inputs.InvalidInputTypeException;
 import org.deeplearning4j.nn.conf.memory.LayerMemoryReport;
@@ -39,7 +38,6 @@ import java.util.Arrays;
  *
  * @author Alex Black
  */
-@Data
 public class SubsetVertexN extends GraphVertex {
 
     private int from;

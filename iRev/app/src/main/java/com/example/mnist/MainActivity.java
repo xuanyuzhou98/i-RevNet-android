@@ -114,8 +114,8 @@ public class MainActivity extends AppCompatActivity {
                         lastLayer = "init_psi";
                     }
 
-                    graph.addVertex("x0", new SubsetVertexN(n-1, 0), lastLayer) //(3, 1, 32, 32)
-                            .addVertex("tilde_x0", new SubsetVertexN(in_ch-1, n), lastLayer); //(3, 2, 32, 32)
+                    graph.addVertex("x0", new SubsetVertexN(0, n-1), lastLayer) //(3, 1, 32, 32)
+                            .addVertex("tilde_x0", new SubsetVertexN(n, in_ch-1), lastLayer); //(3, 2, 32, 32)
                     ActivationLayer relu = new ActivationLayer.Builder()
                             .activation(Activation.RELU)
                             .build();
@@ -142,8 +142,8 @@ public class MainActivity extends AppCompatActivity {
 
                     // layers
                     BatchNormalization BNlayer = new BatchNormalization.Builder()
-                            .nIn(n * 4 * 2)
-                            .nOut(n * 4 * 2)
+                            .nIn(nChannels[nChannels.length - 1] * 2)
+                            .nOut(nChannels[nChannels.length - 1] * 2)
                             .build();
 
                     ActivationLayer ReLulayer = new ActivationLayer.Builder()
@@ -177,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
                     model.init();
                     Log.d("Output", "start output");
                     INDArray[] TestArray = new INDArray[1];
-                    INDArray sample = Nd4j.create(3, 32, 32, 3);
+                    INDArray sample = Nd4j.create(3, 3, 32, 32);
                     TestArray[0] = sample;
                     INDArray[] outputs = model.output(TestArray);
                     Log.d("Success!", "Success!!!!!!!!");
