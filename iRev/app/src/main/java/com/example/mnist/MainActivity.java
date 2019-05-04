@@ -68,8 +68,6 @@ public class MainActivity extends AppCompatActivity {
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-//                AsyncTaskRunner runner = new AsyncTaskRunner();
-//                runner.execute("");
                 ProgressBar bar = findViewById(R.id.progressBar);
                 bar.setVisibility(View.VISIBLE);
                 new Thread(new Task()).start();
@@ -81,7 +79,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             try {
-//                    Thread.sleep(1000);
                 int[] nChannels = new int[]{16, 64, 256};
                 int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
@@ -116,15 +113,16 @@ public class MainActivity extends AppCompatActivity {
                                 .build(), "input");
                         lastLayer = "init_psi";
                     }
-                    graph.addVertex("x0", new SubsetVertex(n-1, 0), lastLayer) //(3, 6, 16, 16)
-                            .addVertex("tilde_x0", new SubsetVertex(in_ch-1, n), lastLayer); //(3, 6, 16, 16)
+
+                    graph.addVertex("x0", new SubsetVertexN(n-1, 0), lastLayer) //(3, 1, 32, 32)
+                            .addVertex("tilde_x0", new SubsetVertexN(in_ch-1, n), lastLayer); //(3, 2, 32, 32)
                     ActivationLayer relu = new ActivationLayer.Builder()
                             .activation(Activation.RELU)
-                            .build();//(3, 12, 16, 16)
+                            .build();
                     graph.addLayer("firstRelu", relu, "tilde_x0");
                     int in_ch_Block = in_ch;
-                    String input1 = "x0";
-                    String input2 = "firstRelu";
+                    String input1 = "x0"; //(3, 1, 32, 32)
+                    String input2 = "firstRelu"; // (3, 2, 32, 32)
                     List<IRevBlock> blockList = new ArrayList<>();
                     for (int i = 0; i < 3; i++) { // for each stage
                         for (int j = 0; j < nBlocks[i]; j++) { // for each block in the stage
@@ -161,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
                             .nOut(outputNum)
                             .build();
 
-                    OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.XENT)
+                    OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
                             .nOut(outputNum)
                             .activation(Activation.SOFTMAX)
                             .build();
@@ -179,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
                     model.init();
                     Log.d("Output", "start output");
                     INDArray[] TestArray = new INDArray[1];
-                    INDArray sample = Nd4j.create(3, 3, 32, 32);
+                    INDArray sample = Nd4j.create(3, 32, 32, 3);
                     TestArray[0] = sample;
                     INDArray[] outputs = model.output(TestArray);
                     Log.d("Success!", "Success!!!!!!!!");

@@ -112,10 +112,10 @@ public class Bottleneck extends SameDiffLayer {
         int[] hwd = ConvolutionUtils.getHWDFromInputType(inputType);
         int outH = (hwd[0] - 3 + 2 * 1) / this.stride + 1;
         int outW = (hwd[1] - 3 + 2 * 1) / this.stride + 1;
-        outH = (outH - 3 + 2 * 1) / this.stride + 1;
-        outW = (outW - 3 + 2 * 1) / this.stride + 1;
-        outH = (outH - 3 + 2 * 1) / this.stride + 1;
-        outW = (outW - 3 + 2 * 1) / this.stride + 1;
+        outH = (outH - 3 + 2 * 1) + 1;
+        outW = (outW - 3 + 2 * 1) + 1;
+        outH = (outH - 3 + 2 * 1) + 1;
+        outW = (outW - 3 + 2 * 1) + 1;
         return InputType.convolutional(outH, outW, this.out_ch);
     }
 
