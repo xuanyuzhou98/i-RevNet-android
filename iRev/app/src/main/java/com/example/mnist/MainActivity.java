@@ -192,6 +192,42 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    // This function computes the total gradient of the graph without referring to the stored activation
+    protected HashMap<String, INDArray[]> computeGradient(ComputationGraph model, INDArray y2, INDArray y1, int[] nBlocks,
+                                                          List<IRevBlock> blockList, INDArray[] lossGradient) {
+
+        HashMap<String, INDArray[]> gradsResult = new HashMap<>();
+        // TODO: get dy1 and dy2
+        INDArray dy1 = lossGradient[0];
+        INDArray dy2 = lossGradient[1];
+
+        int cnt = blockList.size();
+        // from the last layer to the first layer
+        for (int i = nBlocks.length - 1; i >= 0; i -= 1) { // for each stage
+            for (int j = nBlocks[i] - 1; j >= 0; j -= 1) { // for each iRevBlock
+                IRevBlock iRev = blockList.get(cnt);
+                // TODO: get x1 and x2
+                INDArray[] x = iRev.inverse(y1, y2);
+                INDArray x1 = x[0];
+                INDArray x2 = x[1];
+
+
+                // TODO: get gradients
+                INDArray[] gradients = iRev.gradient(x1, x2, dy1, dy2);
+
+                // TODO: save graidents
+                gradsResult.put(iRev.getName+"input1", gradients[0]);
+                gradsResult.put(iRev.getName+"input2", gradients[1]);
+                gradsResult.put(iRev.getName+"params", gradients[2:]);
+                cnt -= 1;
+                y1 = x1;
+                y2 = x2;
+            }
+        }
+
+        return gradsResult;
+    }
+
     private long getFlopCountConv(int channels, int filter_size, int num_filters,
                                   int outShapeH, int outShapeW) {
         return (2 * channels * filter_size * filter_size - 1) * num_filters * outShapeH * outShapeW;

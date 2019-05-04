@@ -7,12 +7,20 @@ import org.deeplearning4j.nn.conf.graph.SubsetVertex;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.conf.layers.ZeroPaddingLayer;
 import org.deeplearning4j.nn.weights.WeightInit;
-import android.util.Log;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.indexing.NDArrayIndex;
 
+import android.util.Log;
+import android.util.Pair;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class IRevBlock {
     private int stride;
+    private int pad;
     private String[] output;
     public Bottleneck bottleneck;
 
@@ -29,6 +37,8 @@ public class IRevBlock {
             in_ch = out_ch * 2;
         }
         //input1: (3, 12, 16, 16) input2: (3, 12, 16, 16)
+        this.pad = pad;
+        this.stride = stride;
         this.bottleneck = new Bottleneck(in_ch/2, out_ch, stride,
                 mult, WeightInit.XAVIER); // (3, 16, 32, 32)
         if (stride == 1 && pad != 0) {
@@ -51,7 +61,6 @@ public class IRevBlock {
                     .nIn(in_ch)
                     .nOut(out_ch)
                     .build();
-            this.stride = stride;
             graphBuilder
                     .addLayer(prefix + "_psi1", psi, input1)
                     .addLayer(prefix + "_psi2", psi, input2);
@@ -66,6 +75,59 @@ public class IRevBlock {
         this.output[0] = input2;
         this.output[1] = prefix + "_y1";
     }
+
+    public INDArray inverse(int in_ch, int out_ch, int stride, int mult, INDArray output0,
+                            INDArray output1) {
+//
+        if (this.stride == 1 && this.pad != 0) {
+            //compute injective padding's inverse
+            INDArray merge = Nd4j.concat(1, output0, output1);
+            merge = merge.permute(1, 0, 2, 3);
+            INDArray beforePadding =  merge.get(NDArrayIndex.interval(this.pad, merge.shape()[1] - this.pad));    // Here I think it is 2*pad, see if it is true.
+            beforePadding = beforePadding.permute(1, 0, 2, 3);
+            this.bottleneck.gradient()
+
+        }
+
+        if (this.stride == 2) {
+            //call PSI inverse
+            INDArray beforepsi = PsiLayerImpl.inverse(output0, stride);
+        }
+
+        return
+    }
+
+    // This function computes the total gradient of the graph without referring to the stored activation
+    protected Pair<List<INDArray>, List<INDArray>> gradient(INDArray x1, INDArray x2, INDArray dy1, INDArray dy2) {
+        // use x1 and x2 to calculate y1 and y2.
+
+        // construct f weight list
+        // TODO: fetch fwList
+        List<INDArray> fwList =;
+
+        // TODO: downsample when switching btwn stages? Seems like we could ignore this since iRevNets
+        // calculate the gradient w.r.t x1, x2 and list of weights
+        // dz1 = S-1(dy1) + (dF_dz1).T.dot(dy2)
+        // dx2 = S-1(dy2)
+        // dx1 = dz1s
+
+        INDArray z1 = x1;
+        INDArray[] dy2_z1 = this.bottleneck.gradient(z1, dy2);
+        INDArray dz1 = dy2_z1.add(this.inverse(dy1));
+        INDArray dx1 = this.inverse(dy2);
+        INDArray dx2 = dz1;
+
+        // TODO: calculate gradient towards all the weights
+
+        // return ([dx1, dx2, dfw], fw_list)
+        List<INDArray> gradients = new ArrayList<INDArray>();
+        gradients.add(dx1);
+        gradients.add(dx2);
+        gradients.addAll(dfw);
+        return new Pair<List<INDArray>, List<INDArray>>(gradients, fwList);
+
+    }
+
 
     protected String[] getOutput() {
         return this.output;
