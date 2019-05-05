@@ -13,7 +13,7 @@ import org.deeplearning4j.nn.conf.graph.LayerVertex;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.autodiff.samediff.SDVariable;
-
+import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
                 int[] nChannels = new int[]{16, 64, 256};
                 int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
+                int dsCount = 2; // number of stride equals 2
                 int channels = 3;
                 int init_ds = 0;
                 int in_ch = channels * (int) Math.pow(2, init_ds);
@@ -97,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
                 Random randNumGen = new Random(rngSeed);
                 int batchSize = 54; // batch size for each epoch
                 int mult = 4;
+                int ds = numColumns / (int) Math.pow(2, (dsCount +init_ds / 2));
                 try {
                     ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
                             .seed(rngSeed)
@@ -162,8 +164,7 @@ public class MainActivity extends AppCompatActivity {
                             .nOut(outputNum)
                             .build();
 
-                    OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
-                            .nOut(outputNum)
+                    LossLayer outputLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                             .activation(Activation.SOFTMAX)
                             .build();
 
@@ -190,15 +191,14 @@ public class MainActivity extends AppCompatActivity {
                     INDArray[] lossGradient = new INDArray[2];
                     lossGradient[0] = Nd4j.ones(3, 256, 8, 8);
                     lossGradient[1] = Nd4j.ones(3, 256, 8, 8);
-
-//TODO: For tianren: CREATE LOSSGRADIENT OF ALL ONES, PROBABILILY USING SOMEHING LIKE Nd4j.ones()
                     HashMap<String, INDArray> gradientMap = computeGradient(model, outputs[1], outputs[2],
                             nBlocks, blockList, lossGradient);
+                    Gradient gradient = new DefaultGradient();
                     for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
                         Log.d(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
-                        model.update(entry.getValue(), entry.getKey());
+                        gradient.setGradientFor(entry.getKey(), entry.getValue());
                     }
-                    //TODO: LET'S MAKE IT TO THE SUCCESS TONIGHT!!!
+                    model.update(gradient);
                     Log.d("Success!", "Success!!!!!!!!");
                 } catch (Exception e) {
                     e.printStackTrace();
