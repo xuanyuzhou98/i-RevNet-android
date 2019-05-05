@@ -154,7 +154,7 @@ public class Bottleneck extends SameDiffLayer {
         sd.execBackwards(placeHolders);
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
-            grads[i] = dy.mmul(sd.getGradForVariable(w_names[i]).getArr());
+            grads[i] = sd.getGradForVariable(w_names[i]).getArr();
         }
         return grads;
     }
