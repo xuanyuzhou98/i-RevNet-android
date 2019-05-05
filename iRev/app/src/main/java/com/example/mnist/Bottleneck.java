@@ -143,10 +143,14 @@ public class Bottleneck extends SameDiffLayer {
         SameDiff sd = SameDiff.create();
         SDVariable layerInput = sd.var("input", x);
         layerInput.isPlaceHolder();
+        SDVariable outputGrad = sd.var("outputGrad", dy);
+        outputGrad.isPlaceHolder();
         SDVariable output = defineLayer(sd, layerInput, this.paramTable, null);
+        SDVariable mul = output.mul(outputGrad);
         String[] w_names = new String[]{"input", "conv1Weight", "conv2Weight", "conv3Weight"};
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
+        placeHolders.put("outputGrad", dy);
         sd.execBackwards(placeHolders);
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
