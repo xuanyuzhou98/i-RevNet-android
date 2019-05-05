@@ -75,25 +75,68 @@ public class IRevBlock {
         this.output[0] = input2;
         this.output[1] = prefix + "_y1";
     }
+    public INDArray[] injInverse(INDArray input1, INDArray input2) {
+        INDArray[] x = new INDArray[2];
+        INDArray merge = Nd4j.concat(1, input1, input2);
+        merge = merge.permute(1, 0, 2, 3);
+        INDArray beforePadding =  merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad)); // exclusive last term
+//            merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad),
+//                    NDArrayIndex.interval(0, merge.shape()[1]), NDArrayIndex.interval(0, merge.shape()[2]),
+//                    NDArrayIndex.interval(0, merge.shape()[3]));
+
+
+        long first = beforePadding.shape()[0] / 2;
+        x[0] = beforePadding.get(NDArrayIndex.interval(0, first));
+        x[1] = beforePadding.get(NDArrayIndex.interval(0, first));
+
+        return x;
+    }
 
     public INDArray[] inverse(INDArray y1, INDArray y2) {
-
+        INDArray x1;
+        INDArray x2;
+        INDArray[] x = new INDArray[2];
         if (this.stride == 1 && this.pad != 0) {
             //compute injective padding's inverse
-            INDArray merge = Nd4j.concat(1, output0, output1);
-            merge = merge.permute(1, 0, 2, 3);
-            INDArray beforePadding =  merge.get(NDArrayIndex.interval(this.pad, merge.shape()[1] - this.pad));    // Here I think it is 2*pad, see if it is true.
-            beforePadding = beforePadding.permute(1, 0, 2, 3);
-            this.bottleneck.gradient()
+            INDArray btnk = this.bottleneck.forward(y1);
+            INDArray input1 = y2.sub(btnk);
+            INDArray input2 = y1;
+            x = injInverse(input1, input2);
+            x1 = x[0];
+            x2 = x[1];
+//            INDArray merge = Nd4j.concat(1, input1, input2);
+//            merge = merge.permute(1, 0, 2, 3);
+//            INDArray beforePadding =  merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad)); // exclusive last term
+////            merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad),
+////                    NDArrayIndex.interval(0, merge.shape()[1]), NDArrayIndex.interval(0, merge.shape()[2]),
+////                    NDArrayIndex.interval(0, merge.shape()[3]));
+//
+//
+//            long first = beforePadding.shape()[0] / 2;
+//            x1 = beforePadding.get(NDArrayIndex.interval(0, first));
+//            x2 = beforePadding.get(NDArrayIndex.interval(first, beforePadding.shape()[0]));
+//            //beforePadding = beforePadding.permute(1, 0, 2, 3);
 
         }
-
-        if (this.stride == 2) {
+        else if (this.stride == 1 && this.pad == 0) {
+            x2 = y1;
+            INDArray btnk = this.bottleneck.forward(x2);
+            x1 = y2.sub(btnk);
+        }
+        else {
             //call PSI inverse
-            INDArray beforepsi = PsiLayerImpl.inverse(output0, stride);
+            x2 = PsiLayerImpl.inverse(y1, this.stride);
+            INDArray btnk = this.bottleneck.forward(x2);
+            INDArray px1 = y2.sub(btnk);
+            x1 = PsiLayerImpl.inverse(px1, this.stride);
         }
 
-        return
+        // (this.stride == 2)
+
+        x[0] = x1;
+        x[1] = x2;
+
+        return x;
     }
 
     // This function computes the total gradient of the graph without referring to the stored activation
