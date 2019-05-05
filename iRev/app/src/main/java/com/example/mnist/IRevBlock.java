@@ -97,8 +97,12 @@ public class IRevBlock {
     }
 
     // This function computes the total gradient of the graph without referring to the stored activation
-    protected List<INDArray> gradient(INDArray x1, INDArray x2, INDArray dy1, INDArray dy2) {
-        // use x1 and x2 to calculate y1 and y2.
+    protected List<INDArray> gradient(INDArray x1, INDArray dy1, INDArray dy2) {
+        INDArray dx1 = null;
+        INDArray dx2 = null;
+        INDArray dc1 = null;
+        INDArray dc2 = null;
+        INDArray dc3 = null;
 
         // TODO: downsample when switching btwn stages? Seems like we could ignore this since iRevNets
         // calculate the gradient w.r.t x1, x2 and list of weights
@@ -106,22 +110,39 @@ public class IRevBlock {
         // dx2 = S-1(dy2)
         // dx1 = dz1s
         if (this.stride == 1 && this.pad != 0) {
-
+            INDArray z1 = x1;
+            INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3
+            INDArray dy2_x2 = ds[0];
+            dc1 = ds[1];
+            dc2 = ds[2];
+            dc3 = ds[3];
+            INDArray dy2_x1 = dy1;
+            INDArray inverse_dx2 = dy2_x2.add(dy2_x1);
+            INDArray inverse_dx1 = dy2;
+            INDArray[] dx = injInverse(inverse_dx1, inverse_dx2);
+            dx1 = dx[0];
+            dx2 = dx[1];
         } else if (this.stride == 1 && this.pad == 0) {
-
+            INDArray z1 = x1;
+            INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3
+            INDArray dy2_x2 = ds[0];
+            dc1 = ds[1];
+            dc2 = ds[2];
+            dc3 = ds[3];
+            INDArray dy2_x1 = dy1;
+            dx2 = dy2_x2.add(dy2_x1);
+            dx1 = dy2;
         } else if (this.stride == 2) {
-
+            INDArray z1 = x1;
+            INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3
+            INDArray dy2_x2 = ds[0];
+            dc1 = ds[1];
+            dc2 = ds[2];
+            dc3 = ds[3];
+            INDArray dy2_x1 = PsiLayerImpl.inverse(dy1, this.stride);
+            dx2 = dy2_x2.add(dy2_x1);
+            dx1 = PsiLayerImpl.inverse(dy2, this.stride);
         }
-
-        INDArray z1 = x1;
-        INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3
-        INDArray dy2_x2 = ds[0];
-        INDArray dc1 = ds[1];
-        INDArray dc2 = ds[2];
-        INDArray dc3 = ds[3];
-        INDArray dy2_x1 = this.inverse(dy1);
-        INDArray dx2 = dy2_x2.add(dy2_x1);
-        INDArray dx1 = this.inverse(dy2);
 
         // return (dx1, dx2, dc1, dc2, dc3)
         List<INDArray> gradients = new ArrayList<INDArray>();
