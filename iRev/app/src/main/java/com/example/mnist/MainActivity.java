@@ -211,16 +211,16 @@ public class MainActivity extends AppCompatActivity {
                 INDArray[] x = iRev.inverse(y1, y2);
                 INDArray x1 = x[0];
                 INDArray x2 = x[1];
-                // update (swap) y1 and y2
+                // update (and swap) y1 and y2
                 y1 = x2;
                 y2 = x1;
                 // get gradients
                 List<INDArray> gradients = iRev.gradient(x1, dy1, dy2);
-
-                // save graidents
+                // update dy1 and dy2 (already swapped)
                 String prefix = iRev.getPrefix();
                 dy1 = gradients.get(0);
                 dy2 = gradients.get(1);
+                // save graidents
                 gradsResult.put(prefix + "_conv1Weight", gradients.get(2));
                 gradsResult.put(prefix + "_conv2Weight", gradients.get(3));
                 gradsResult.put(prefix + "_conv3Weight", gradients.get(4));
