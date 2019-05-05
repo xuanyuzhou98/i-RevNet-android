@@ -194,11 +194,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // This function computes the total gradient of the graph without referring to the stored activation
-    protected HashMap<String, INDArray[]> computeGradient(ComputationGraph model, INDArray y2, INDArray y1, int[] nBlocks,
+    protected HashMap<String, INDArray> computeGradient(ComputationGraph model, INDArray y2, INDArray y1, int[] nBlocks,
                                                           List<IRevBlock> blockList, INDArray[] lossGradient) {
 
-        HashMap<String, INDArray[]> gradsResult = new HashMap<>();
-        // TODO: get dy1 and dy2
+        HashMap<String, INDArray> gradsResult = new HashMap<>();
+        // get dy1 and dy2
         INDArray dy1 = lossGradient[0];
         INDArray dy2 = lossGradient[1];
 
@@ -207,24 +207,24 @@ public class MainActivity extends AppCompatActivity {
         for (int i = nBlocks.length - 1; i >= 0; i -= 1) { // for each stage
             for (int j = nBlocks[i] - 1; j >= 0; j -= 1) { // for each iRevBlock
                 IRevBlock iRev = blockList.get(cnt);
-                // TODO: get x1 and x2
+                // get x1 and x2
                 INDArray[] x = iRev.inverse(y1, y2);
                 INDArray x1 = x[0];
                 INDArray x2 = x[1];
-
-
-                // TODO: get gradients
-                List<INDArray> gradients = iRev.gradient(x1, x2, dy1, dy2);
-
-                // TODO: save graidents
-                gradsResult.put(iRev.getName+"input1", gradients.get(0));
-                gradsResult.put(iRev.getName+"input2", gradients.get(1));
-                gradsResult.put(iRev.getName+"c1", gradients.get(2));
-                gradsResult.put(iRev.getName+"c2", gradients.get(3));
-                gradsResult.put(iRev.getName+"c3", gradients.get(4));
+                // update (and swap) y1 and y2
+                y1 = x2;
+                y2 = x1;
+                // get gradients
+                List<INDArray> gradients = iRev.gradient(x1, dy1, dy2);
+                // update dy1 and dy2 (already swapped)
+                String prefix = iRev.getPrefix();
+                dy1 = gradients.get(0);
+                dy2 = gradients.get(1);
+                // save graidents
+                gradsResult.put(prefix + "_conv1Weight", gradients.get(2));
+                gradsResult.put(prefix + "_conv2Weight", gradients.get(3));
+                gradsResult.put(prefix + "_conv3Weight", gradients.get(4));
                 cnt -= 1;
-                y1 = x1;
-                y2 = x2;
             }
         }
 
