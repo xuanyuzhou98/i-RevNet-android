@@ -19,6 +19,7 @@ import java.util.List;
 
 
 public class IRevBlock {
+    private String prefix;
     private int stride;
     private int pad;
     private String[] output;
@@ -39,6 +40,7 @@ public class IRevBlock {
         //input1: (3, 12, 16, 16) input2: (3, 12, 16, 16)
         this.pad = pad;
         this.stride = stride;
+        this.prefix = prefix;
         this.bottleneck = new Bottleneck(in_ch/2, out_ch, stride,
                 mult, WeightInit.XAVIER); // (3, 16, 32, 32)
         if (stride == 1 && pad != 0) {
@@ -152,6 +154,10 @@ public class IRevBlock {
         gradients.add(dc2);
         gradients.add(dc3);
         return gradients;
+    }
+
+    protected String getPrefix() {
+        return this.prefix;
     }
 
 

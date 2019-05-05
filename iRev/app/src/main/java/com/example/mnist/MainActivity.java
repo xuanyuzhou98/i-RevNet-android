@@ -194,11 +194,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // This function computes the total gradient of the graph without referring to the stored activation
-    protected HashMap<String, INDArray[]> computeGradient(ComputationGraph model, INDArray y2, INDArray y1, int[] nBlocks,
+    protected HashMap<String, INDArray> computeGradient(ComputationGraph model, INDArray y2, INDArray y1, int[] nBlocks,
                                                           List<IRevBlock> blockList, INDArray[] lossGradient) {
 
-        HashMap<String, INDArray[]> gradsResult = new HashMap<>();
-        // TODO: get dy1 and dy2
+        HashMap<String, INDArray> gradsResult = new HashMap<>();
+        // get dy1 and dy2
         INDArray dy1 = lossGradient[0];
         INDArray dy2 = lossGradient[1];
 
@@ -217,12 +217,13 @@ public class MainActivity extends AppCompatActivity {
                 // get gradients
                 List<INDArray> gradients = iRev.gradient(x1, dy1, dy2);
 
-                // TODO: save graidents
-                gradsResult.put(iRev.getName+"input1", gradients.get(0));
-                gradsResult.put(iRev.getName+"input2", gradients.get(1));
-                gradsResult.put(iRev.getName+"c1", gradients.get(2));
-                gradsResult.put(iRev.getName+"c2", gradients.get(3));
-                gradsResult.put(iRev.getName+"c3", gradients.get(4));
+                // save graidents
+                String prefix = iRev.getPrefix();
+                dy1 = gradients.get(0);
+                dy2 = gradients.get(1);
+                gradsResult.put(prefix + "_conv1Weight", gradients.get(2));
+                gradsResult.put(prefix + "_conv2Weight", gradients.get(3));
+                gradsResult.put(prefix + "_conv3Weight", gradients.get(4));
                 cnt -= 1;
             }
         }
