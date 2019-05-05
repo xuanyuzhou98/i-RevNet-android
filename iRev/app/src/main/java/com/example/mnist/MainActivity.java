@@ -194,12 +194,10 @@ public class MainActivity extends AppCompatActivity {
 //TODO: For tianren: CREATE LOSSGRADIENT OF ALL ONES, PROBABILILY USING SOMEHING LIKE Nd4j.ones()
                     HashMap<String, INDArray> gradientMap = computeGradient(model, outputs[1], outputs[2],
                             nBlocks, blockList, lossGradient);
-                    Gradient gradient = model.gradient();
                     for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
                         Log.d(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
-                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+                        model.update(entry.getValue(), entry.getKey());
                     }
-                    model.update(gradient);
                     //TODO: LET'S MAKE IT TO THE SUCCESS TONIGHT!!!
                     Log.d("Success!", "Success!!!!!!!!");
                 } catch (Exception e) {
