@@ -105,6 +105,13 @@ public class IRevBlock {
         // dz1 = S-1(dy1) + (dF_dz1).T.dot(dy2)
         // dx2 = S-1(dy2)
         // dx1 = dz1s
+        if (this.stride == 1 && this.pad != 0) {
+
+        } else if (this.stride == 1 && this.pad == 0) {
+
+        } else if (this.stride == 2) {
+
+        }
 
         INDArray z1 = x1;
         INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3

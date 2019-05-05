@@ -214,12 +214,14 @@ public class MainActivity extends AppCompatActivity {
 
 
                 // TODO: get gradients
-                INDArray[] gradients = iRev.gradient(x1, x2, dy1, dy2);
+                List<INDArray> gradients = iRev.gradient(x1, x2, dy1, dy2);
 
                 // TODO: save graidents
-                gradsResult.put(iRev.getName+"input1", gradients[0]);
-                gradsResult.put(iRev.getName+"input2", gradients[1]);
-                gradsResult.put(iRev.getName+"params", gradients[2:]);
+                gradsResult.put(iRev.getName+"input1", gradients.get(0));
+                gradsResult.put(iRev.getName+"input2", gradients.get(1));
+                gradsResult.put(iRev.getName+"c1", gradients.get(2));
+                gradsResult.put(iRev.getName+"c2", gradients.get(3));
+                gradsResult.put(iRev.getName+"c3", gradients.get(4));
                 cnt -= 1;
                 y1 = x1;
                 y2 = x2;
