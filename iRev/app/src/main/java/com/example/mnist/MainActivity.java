@@ -9,6 +9,7 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
 
+import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.autodiff.samediff.SDVariable;
 
@@ -170,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
                             .addLayer("outputPool", Poolinglayer, "outputRelu")
                             .addLayer("outputProb", Denselayer, "outputPool")
                             .addLayer("output", outputLayer, "outputProb")
-                            .setOutputs("output");
+                            .setOutputs("output", input1, input2);
 
                     ComputationGraphConfiguration conf = graph.build();
                     ComputationGraph model = new ComputationGraph(conf);
@@ -180,7 +181,15 @@ public class MainActivity extends AppCompatActivity {
                     INDArray sample = Nd4j.create(3, 3, 32, 32);
                     TestArray[0] = sample;
                     INDArray[] outputs = model.output(TestArray);
-                    model.update();
+//TODO: For tianren: CREATE LOSSGRADIENT OF ALL ONES, PROBABILILY USING SOMEHING LIKE Nd4j.ones()
+                    HashMap<String, INDArray> gradientMap = computeGradient(model, outputs[1], outputs[2],
+                            nBlocks, blockList, lossGradient);
+                    Gradient gradient = model.gradient();
+                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+                    }
+                    model.update(gradient);
+                    //TODO: LET'S MAKE IT TO THE SUCCESS TONIGHT!!!
                     Log.d("Success!", "Success!!!!!!!!");
                 } catch (Exception e) {
                     e.printStackTrace();
