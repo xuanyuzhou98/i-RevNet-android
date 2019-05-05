@@ -9,6 +9,7 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
 
+import org.deeplearning4j.nn.conf.graph.LayerVertex;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.autodiff.samediff.SDVariable;
@@ -45,6 +46,7 @@ import org.nd4j.shade.jackson.databind.ser.impl.IteratorSerializer;
 
 import java.io.File;
 import java.lang.Math;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -166,12 +168,14 @@ public class MainActivity extends AppCompatActivity {
                             .build();
 
                     graph.addVertex("merge", new MergeVertex(), input1, input2)
+                            .addVertex("ip1", new MergeVertex(), input1)
+                            .addVertex("ip2", new MergeVertex(), input2)
                             .addLayer("outputBN", BNlayer, "merge")
                             .addLayer("outputRelu", ReLulayer, "outputBN")
                             .addLayer("outputPool", Poolinglayer, "outputRelu")
                             .addLayer("outputProb", Denselayer, "outputPool")
                             .addLayer("output", outputLayer, "outputProb")
-                            .setOutputs("output", input1, input2);
+                            .setOutputs("output", "ip1", "ip2");
 
                     ComputationGraphConfiguration conf = graph.build();
                     ComputationGraph model = new ComputationGraph(conf);
@@ -181,11 +185,18 @@ public class MainActivity extends AppCompatActivity {
                     INDArray sample = Nd4j.create(3, 3, 32, 32);
                     TestArray[0] = sample;
                     INDArray[] outputs = model.output(TestArray);
+                    Log.d("ip1", Arrays.toString(outputs[1].shape())); // [3, 256, 8, 8]
+                    Log.d("ip2", Arrays.toString(outputs[2].shape())); // [3, 256, 8, 8]
+                    INDArray[] lossGradient = new INDArray[2];
+                    lossGradient[0] = Nd4j.ones(3, 256, 8, 8);
+                    lossGradient[1] = Nd4j.ones(3, 256, 8, 8);
+
 //TODO: For tianren: CREATE LOSSGRADIENT OF ALL ONES, PROBABILILY USING SOMEHING LIKE Nd4j.ones()
                     HashMap<String, INDArray> gradientMap = computeGradient(model, outputs[1], outputs[2],
                             nBlocks, blockList, lossGradient);
                     Gradient gradient = model.gradient();
                     for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                        Log.d(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
                         gradient.setGradientFor(entry.getKey(), entry.getValue());
                     }
                     model.update(gradient);
@@ -211,7 +222,7 @@ public class MainActivity extends AppCompatActivity {
         INDArray dy1 = lossGradient[0];
         INDArray dy2 = lossGradient[1];
 
-        int cnt = blockList.size();
+        int cnt = blockList.size() - 1;
         // from the last layer to the first layer
         for (int i = nBlocks.length - 1; i >= 0; i -= 1) { // for each stage
             for (int j = nBlocks[i] - 1; j >= 0; j -= 1) { // for each iRevBlock
@@ -221,8 +232,8 @@ public class MainActivity extends AppCompatActivity {
                 INDArray x1 = x[0];
                 INDArray x2 = x[1];
                 // update (and swap) y1 and y2
-                y1 = x2;
-                y2 = x1;
+                y1 = x1;
+                y2 = x2;
                 // get gradients
                 List<INDArray> gradients = iRev.gradient(x1, dy1, dy2);
                 // update dy1 and dy2 (already swapped)
