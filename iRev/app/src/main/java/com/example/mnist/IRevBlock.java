@@ -89,7 +89,9 @@ public class IRevBlock {
 
         long first = beforePadding.shape()[0] / 2;
         x[0] = beforePadding.get(NDArrayIndex.interval(0, first));
+        x[0] = x[0].permute(1, 0, 2, 3);
         x[1] = beforePadding.get(NDArrayIndex.interval(0, first));
+        x[1] = x[1].permute(1, 0, 2, 3);
 
         return x;
     }
