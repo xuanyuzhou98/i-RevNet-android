@@ -105,9 +105,9 @@ public class IRevBlock {
             INDArray btnk = this.bottleneck.forward(y1);
             INDArray input1 = y2.sub(btnk);
             INDArray input2 = y1;
-            x = injInverse(input1, input2);
-            x1 = x[0];
-            x2 = x[1];
+            //x = injInverse(input1, input2);
+            x1 = input1;
+            x2 = input2;
 //            INDArray merge = Nd4j.concat(1, input1, input2);
 //            merge = merge.permute(1, 0, 2, 3);
 //            INDArray beforePadding =  merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad)); // exclusive last term
