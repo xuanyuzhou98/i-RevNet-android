@@ -180,6 +180,7 @@ public class MainActivity extends AppCompatActivity {
                     INDArray sample = Nd4j.create(3, 3, 32, 32);
                     TestArray[0] = sample;
                     INDArray[] outputs = model.output(TestArray);
+                    model.update();
                     Log.d("Success!", "Success!!!!!!!!");
                 } catch (Exception e) {
                     e.printStackTrace();

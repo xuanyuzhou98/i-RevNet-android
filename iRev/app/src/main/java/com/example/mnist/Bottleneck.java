@@ -124,6 +124,22 @@ public class Bottleneck extends SameDiffLayer {
      * @param x [N, Cin/2, H, W]. Input activation.
      * @param dy [N, Cout/2, H, W]. Output gradient.
      */
+    public INDArray forward(INDArray x) {
+        SameDiff sd = SameDiff.create();
+        SDVariable layerInput = sd.var("input", x);
+        layerInput.isPlaceHolder();
+        defineLayer(sd, layerInput, this.paramTable, null);
+        Map<String, INDArray> placeHolders = new HashMap();
+        placeHolders.put("input", x);
+        INDArray btnkOut = sd.execSingle(placeHolders, "conv3");
+        return btnkOut;
+    }
+
+    /**
+     * Gradients without referring to the stored activation.
+     * @param x [N, Cin/2, H, W]. Input activation.
+     * @param dy [N, Cout/2, H, W]. Output gradient.
+     */
     public INDArray[] gradient(INDArray x, INDArray dy) {
         SameDiff sd = SameDiff.create();
         SDVariable layerInput = sd.var("input", x);

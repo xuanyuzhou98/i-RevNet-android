@@ -76,9 +76,8 @@ public class IRevBlock {
         this.output[1] = prefix + "_y1";
     }
 
-    public INDArray inverse(int in_ch, int out_ch, int stride, int mult, INDArray output0,
-                            INDArray output1) {
-//
+    public INDArray[] inverse(INDArray y1, INDArray y2) {
+
         if (this.stride == 1 && this.pad != 0) {
             //compute injective padding's inverse
             INDArray merge = Nd4j.concat(1, output0, output1);
@@ -98,12 +97,8 @@ public class IRevBlock {
     }
 
     // This function computes the total gradient of the graph without referring to the stored activation
-    protected Pair<List<INDArray>, List<INDArray>> gradient(INDArray x1, INDArray x2, INDArray dy1, INDArray dy2) {
+    protected List<INDArray> gradient(INDArray x1, INDArray x2, INDArray dy1, INDArray dy2) {
         // use x1 and x2 to calculate y1 and y2.
-
-        // construct f weight list
-        // TODO: fetch fwList
-        List<INDArray> fwList =;
 
         // TODO: downsample when switching btwn stages? Seems like we could ignore this since iRevNets
         // calculate the gradient w.r.t x1, x2 and list of weights
@@ -112,20 +107,23 @@ public class IRevBlock {
         // dx1 = dz1s
 
         INDArray z1 = x1;
-        INDArray[] dy2_z1 = this.bottleneck.gradient(z1, dy2);
-        INDArray dz1 = dy2_z1.add(this.inverse(dy1));
+        INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3
+        INDArray dy2_x2 = ds[0];
+        INDArray dc1 = ds[1];
+        INDArray dc2 = ds[2];
+        INDArray dc3 = ds[3];
+        INDArray dy2_x1 = this.inverse(dy1);
+        INDArray dx2 = dy2_x2.add(dy2_x1);
         INDArray dx1 = this.inverse(dy2);
-        INDArray dx2 = dz1;
 
-        // TODO: calculate gradient towards all the weights
-
-        // return ([dx1, dx2, dfw], fw_list)
+        // return (dx1, dx2, dc1, dc2, dc3)
         List<INDArray> gradients = new ArrayList<INDArray>();
         gradients.add(dx1);
         gradients.add(dx2);
-        gradients.addAll(dfw);
-        return new Pair<List<INDArray>, List<INDArray>>(gradients, fwList);
-
+        gradients.add(dc1);
+        gradients.add(dc2);
+        gradients.add(dc3);
+        return gradients;
     }
 
 
