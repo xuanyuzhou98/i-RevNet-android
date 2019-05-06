@@ -14,9 +14,11 @@ import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
+import org.nd4j.linalg.api.ndarray.INDArrayStatistics;
 import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
+import org.nd4j.linalg.indexing.NDArrayIndex;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.datavec.image.loader.NativeImageLoader;
 import org.datavec.image.recordreader.ImageRecordReader;
@@ -145,59 +147,43 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
-                    // layers
-                    BatchNormalization BNlayer = new BatchNormalization.Builder()
-                            .nIn(nChannels[nChannels.length - 1] * 2)
-                            .nOut(nChannels[nChannels.length - 1] * 2)
-                            .build();
+                    ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
+                            WeightInit.XAVIER);
 
-                    ActivationLayer ReLulayer = new ActivationLayer.Builder()
-                            .activation(Activation.RELU)
-                            .build();
-
-                    GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
-                            .poolingType(PoolingType.AVG)
-                            .build();
-
-                    DenseLayer Denselayer = new DenseLayer.Builder()
-                            .activation(Activation.IDENTITY)
-                            .nOut(outputNum)
-                            .build();
-
-                    LossLayer outputLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
+                    LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                             .activation(Activation.SOFTMAX)
                             .build();
 
                     graph.addVertex("merge", new MergeVertex(), input1, input2)
-                            .addVertex("ip1", new MergeVertex(), input1)
-                            .addVertex("ip2", new MergeVertex(), input2)
-                            .addLayer("outputBN", BNlayer, "merge")
-                            .addLayer("outputRelu", ReLulayer, "outputBN")
-                            .addLayer("outputPool", Poolinglayer, "outputRelu")
-                            .addLayer("outputProb", Denselayer, "outputPool")
-                            .addLayer("output", outputLayer, "outputProb")
-                            .setOutputs("output", "ip1", "ip2");
+                            .addLayer("outputProb", probLayer,"merge")
+                            .addLayer("output", lossLayer, "outputProb")
+                            .setOutputs("output", "merge");
 
                     ComputationGraphConfiguration conf = graph.build();
                     ComputationGraph model = new ComputationGraph(conf);
                     model.init();
                     Log.d("Output", "start output");
                     INDArray[] TestArray = new INDArray[1];
-                    INDArray sample = Nd4j.create(3, 3, 32, 32);
+                    INDArray sample = Nd4j.ones(3, 3, 32, 32);
+                    INDArray label = Nd4j.ones(3, 10);
                     TestArray[0] = sample;
                     INDArray[] outputs = model.output(TestArray);
-                    Log.d("ip1", Arrays.toString(outputs[1].shape())); // [3, 256, 8, 8]
-                    Log.d("ip2", Arrays.toString(outputs[2].shape())); // [3, 256, 8, 8]
-                    INDArray[] lossGradient = new INDArray[2];
-                    lossGradient[0] = Nd4j.ones(3, 256, 8, 8);
-                    lossGradient[1] = Nd4j.ones(3, 256, 8, 8);
-                    HashMap<String, INDArray> gradientMap = computeGradient(model, outputs[1], outputs[2],
-                            nBlocks, blockList, lossGradient);
                     Gradient gradient = new DefaultGradient();
+                    INDArray merge = outputs[1];
+                    INDArray[] outputGradients = probLayer.gradient(merge, label);
+                    INDArray dwGradient = outputGradients[1];
+                    INDArray dbGradient = outputGradients[2];
+                    gradient.setGradientFor("denseWeight", dwGradient);
+                    gradient.setGradientFor("denseBias", dbGradient);
+                    INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                    INDArray[] hiddens = Utils.splitHalf(merge);
+                    HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+                            nBlocks, blockList, lossGradient);
                     for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
                         Log.d(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
                         gradient.setGradientFor(entry.getKey(), entry.getValue());
                     }
+                    long ourlength = gradient.gradient().length();
                     model.update(gradient);
                     Log.d("Success!", "Success!!!!!!!!");
                 } catch (Exception e) {

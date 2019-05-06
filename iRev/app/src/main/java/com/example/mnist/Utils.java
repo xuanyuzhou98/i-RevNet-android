@@ -67,6 +67,16 @@ class Utils {
         return insert(arr1, index, values, -1);
     }
 
+    static INDArray[] splitHalf(INDArray arr) {
+        INDArray[] results = new INDArray[2];
+        arr = arr.permute(1, 0, 2, 3);
+        long first = arr.shape()[0] / 2;
+        results[0] = arr.get(NDArrayIndex.interval(0, first)).permute(1, 0, 2, 3);
+        results[1] = arr.get(NDArrayIndex.interval(first,
+                arr.shape()[0])).permute(1, 0, 2, 3);
+        return results;
+    }
+
     static INDArray insert(INDArray arr1, int index, INDArray values, int dimension) {
         if(dimension == -1) {
             INDArray flat1 = Nd4j.toFlattened(arr1);
