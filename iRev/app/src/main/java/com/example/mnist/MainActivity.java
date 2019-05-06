@@ -2,6 +2,7 @@ package com.example.mnist;
 
 import android.os.AsyncTask;
 import android.os.Environment;
+import android.service.autofill.Dataset;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -9,6 +10,7 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
 
+import org.nd4j.linalg.dataset.DataSet;
 import org.deeplearning4j.nn.conf.graph.LayerVertex;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.autodiff.samediff.SameDiff;
@@ -44,7 +46,7 @@ import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.shade.jackson.databind.ser.impl.IteratorSerializer;
-
+import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
 
 import java.io.File;
 import java.lang.Math;
@@ -52,6 +54,7 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -85,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             try {
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{18, 18, 18};
+                int[] nBlocks = new int[]{4, 4, 4};
                 int[] nStrides = new int[]{1, 2, 2};
                 int dsCount = 2; // number of stride equals 2
                 int channels = 3;
@@ -98,10 +101,37 @@ public class MainActivity extends AppCompatActivity {
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 54; // batch size for each epoch
+                int batchSize = 16; // batch size for each epoch
                 int mult = 4;
                 int ds = numColumns / (int) Math.pow(2, (dsCount +init_ds / 2));
                 try {
+                    if (!new File(basePath + "/cifar").exists()) {
+                        Log.d("Data download", "Data downloaded from " + dataUrl);
+                        String localFilePath = basePath + "/cifar.tgz";
+                        if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
+                            DataUtilities.extractTarGz(localFilePath, basePath);
+                        }
+                    }
+                    // vectorization of train data
+                    File trainData = new File(basePath + "/cifar/train");
+                    FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                    ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
+                    ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                    trainRR.initialize(trainSplit);
+                    DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
+                    // pixel values from 0-255 to 0-1 (min-max scaling)
+                    DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+                    scaler.fit(cifarTrain);
+                    cifarTrain.setPreProcessor(scaler);
+
+                    // vectorization of test data
+                    File testData = new File(basePath + "/cifar/test");
+                    FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                    ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                    testRR.initialize(testSplit);
+                    DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
+                    cifarTest.setPreProcessor(scaler); // same normalization for better results
+
                     ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
                             .seed(rngSeed)
                             .activation(Activation.IDENTITY)
@@ -160,30 +190,31 @@ public class MainActivity extends AppCompatActivity {
                     ComputationGraphConfiguration conf = graph.build();
                     ComputationGraph model = new ComputationGraph(conf);
                     model.init();
-                    Map<String, INDArray> paramTable = model.paramTable(true);
-                    Log.d("Output", "start output");
-                    INDArray[] TestArray = new INDArray[1];
-                    INDArray sample = Nd4j.ones(3, 3, 32, 32);
-                    INDArray label = Nd4j.ones(3, 10);
-                    TestArray[0] = sample;
-                    INDArray[] outputs = model.output(TestArray);
-                    Gradient gradient = new DefaultGradient();
-                    INDArray merge = outputs[1];
-                    INDArray[] outputGradients = probLayer.gradient(merge, label);
-                    INDArray dwGradient = outputGradients[1];
-                    INDArray dbGradient = outputGradients[2];
-                    gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                    INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                    INDArray[] hiddens = Utils.splitHalf(merge);
-                    HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-                            nBlocks, blockList, lossGradient);
-                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                        Log.d(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
-                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+                    Log.d("Output", "start training");
+
+                    while (cifarTrain.hasNext()) {
+                        DataSet data = cifarTrain.next();
+                        INDArray features = data.getFeatures();
+                        INDArray label = data.getLabels();
+                        model.output
+                        INDArray[] outputs = model.output(features);
+                        Gradient gradient = new DefaultGradient();
+                        INDArray merge = outputs[1];
+                        INDArray[] outputGradients = probLayer.gradient(merge, label);
+                        INDArray dwGradient = outputGradients[1];
+                        INDArray dbGradient = outputGradients[2];
+                        gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                        gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                        INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                        INDArray[] hiddens = Utils.splitHalf(merge);
+                        HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+                                nBlocks, blockList, lossGradient);
+                        for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                            Log.d(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+                            gradient.setGradientFor(entry.getKey(), entry.getValue());
+                        }
+                        model.getUpdater().update(gradient, 0, 0, 3, LayerWorkspaceMgr.noWorkspaces());
                     }
-                    long ourlength = gradient.gradient().length();
-                    model.update(gradient);
                     Log.d("Success!", "Success!!!!!!!!");
                 } catch (Exception e) {
                     e.printStackTrace();
