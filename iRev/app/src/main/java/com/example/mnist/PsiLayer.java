@@ -1,26 +1,35 @@
 package com.example.mnist;
-import org.deeplearning4j.nn.api.Layer;
+import android.renderscript.ScriptGroup;
 import org.deeplearning4j.nn.api.ParamInitializer;
+import org.deeplearning4j.nn.conf.ConvolutionMode;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.inputs.InputType;
+import org.deeplearning4j.nn.conf.layers.BaseLayer;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
+import org.deeplearning4j.nn.conf.layers.Layer;
 import org.deeplearning4j.nn.conf.layers.InputTypeUtil;
 import org.deeplearning4j.nn.conf.memory.LayerMemoryReport;
 import org.deeplearning4j.nn.conf.memory.MemoryReport;
 import org.deeplearning4j.nn.params.DefaultParamInitializer;
 import org.deeplearning4j.optimize.api.TrainingListener;
+import org.deeplearning4j.util.ConvolutionUtils;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import java.util.Collection;
 import java.util.Map;
 import org.nd4j.linalg.api.buffer.DataType;
+import org.deeplearning4j.nn.conf.InputPreProcessor;
+import org.deeplearning4j.nn.conf.layers.NoParamLayer;
 
 
-public class PsiLayer extends ConvolutionLayer{
+public class PsiLayer extends NoParamLayer {
     private int blockSize;
+    private int blockSizeSq;
+    private int nIn;
 
     public PsiLayer(Builder builder) {
         super(builder);
         this.blockSize = builder.blockSize;
+        this.blockSizeSq = this.blockSize * this.blockSize;
     }
 
     public int getBlockSize() {
@@ -29,7 +38,7 @@ public class PsiLayer extends ConvolutionLayer{
     }
 
     @Override
-    public Layer instantiate(NeuralNetConfiguration conf, Collection<TrainingListener> trainingListeners,
+    public org.deeplearning4j.nn.api.Layer instantiate(NeuralNetConfiguration conf, Collection<TrainingListener> trainingListeners,
                              int layerIndex, INDArray layerParamsView, boolean initializeParams, DataType networkDataType) {
         //The instantiate method is how we go from the configuration class (i.e., this class) to the implementation class
         // (i.e., a CustomLayerImpl instance)
@@ -55,29 +64,18 @@ public class PsiLayer extends ConvolutionLayer{
         return irevlayerimpl;
     }
 
-    @Override
-    public ParamInitializer initializer() {
-        //This method returns the parameter initializer for this type of layer
-        //In this case, we can use the DefaultParamInitializer, which is the same one used for DenseLayer
-        //For more complex layers, you may need to implement a custom parameter initializer
-        //See the various parameter initializers here:
-        //https://github.com/deeplearning4j/deeplearning4j/tree/master/deeplearning4j-core/src/main/java/org/deeplearning4j/nn/params
 
-        return DefaultParamInitializer.getInstance();
+    @Override
+    public InputPreProcessor getPreProcessorForInputType(InputType inputType) {
+        return InputTypeUtil.getPreProcessorForInputTypeCnnLayers(inputType, getLayerName());
     }
 
     @Override
     public InputType getOutputType(int layerIndex, InputType inputType) {
-        if (inputType == null || inputType.getType() != InputType.Type.CNN) {
-            throw new IllegalStateException("Invalid input for Convolution layer (layer name=\"" + getLayerName()
-                    + "\"): Expected CNN input, got " + inputType);
-        }
-
-        InputType.InputTypeConvolutional outputType = (InputType.InputTypeConvolutional)InputTypeUtil.getOutputTypeCnnLayers(inputType, kernelSize, stride, padding, dilation,
-                convolutionMode, nOut, layerIndex, getLayerName(), ConvolutionLayer.class);
-        outputType.setHeight(inputType.getShape()[1] / blockSize);
-        outputType.setWidth(inputType.getShape()[2] / blockSize);
-        return outputType;
+        int[] hwd = ConvolutionUtils.getHWDFromInputType(inputType);
+        int outH = hwd[0] / this.blockSize;
+        int outW = hwd[1] / this.blockSize;
+        return InputType.convolutional(outH, outW, hwd[2] * this.blockSizeSq);
     }
 
     @Override
@@ -89,31 +87,18 @@ public class PsiLayer extends ConvolutionLayer{
         //This implementation: based on DenseLayer implementation
         InputType outputType = getOutputType(-1, inputType);
 
-        long numParams = initializer().numParams(this);
-        int updaterStateSize = (int)getIUpdater().stateSize(numParams);
-
-        int trainSizeFixed = 0;
-        int trainSizeVariable = 0;
-        if(getIDropout() != null){
-            //Assume we dup the input for dropout
-            trainSizeVariable += inputType.arrayElementsPerExample();
-        }
-
-        //Also, during backprop: we do a preOut call -> gives us activations size equal to the output size
-        // which is modified in-place by activation function backprop
-        // then we have 'epsilonNext' which is equivalent to input size
-        trainSizeVariable += outputType.arrayElementsPerExample();
-
         return new LayerMemoryReport.Builder(layerName, PsiLayer.class, inputType, outputType)
-                .standardMemory(numParams, updaterStateSize)
-                .workingMemory(0, 0, trainSizeFixed, trainSizeVariable)     //No additional memory (beyond activations) for inference
-                .cacheMemory(MemoryReport.CACHE_MODE_ALL_ZEROS, MemoryReport.CACHE_MODE_ALL_ZEROS) //No caching in DenseLayer
+                .standardMemory(0, 0) //No params
+                //Inference and training is same - just output activations, no working memory in addition to that
+                .workingMemory(0, 0, MemoryReport.CACHE_MODE_ALL_ZEROS, MemoryReport.CACHE_MODE_ALL_ZEROS)
+                .cacheMemory(MemoryReport.CACHE_MODE_ALL_ZEROS, MemoryReport.CACHE_MODE_ALL_ZEROS) //No caching
                 .build();
+
     }
 
     //Here's an implementation of a builder pattern, to allow us to easily configure the layer
     //Note that we are inheriting all of the FeedForwardLayer.Builder options: things like n
-    public static class Builder extends ConvolutionLayer.Builder {
+    public static class Builder extends Layer.Builder<Builder> {
 
         private int blockSize;
 
@@ -141,8 +126,6 @@ public class PsiLayer extends ConvolutionLayer{
             return new PsiLayer(this);
         }
     }
-
-
 
 
 }

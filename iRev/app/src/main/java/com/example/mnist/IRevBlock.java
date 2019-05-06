@@ -58,10 +58,8 @@ public class IRevBlock {
         graphBuilder.addLayer(prefix + "btnk", this.bottleneck, input2);
         if (stride == 2) {
             Log.d("stride", " 2");
-            ConvolutionLayer psi = new PsiLayer.Builder()
+            PsiLayer psi = new PsiLayer.Builder()
                     .BlockSize(stride)
-                    .nIn(in_ch)
-                    .nOut(out_ch)
                     .build();
             graphBuilder
                     .addLayer(prefix + "_psi1", psi, input1)

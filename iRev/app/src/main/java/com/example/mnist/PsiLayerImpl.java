@@ -15,14 +15,18 @@ import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
 
-
-
-public class PsiLayerImpl extends BaseLayer<org.deeplearning4j.nn.conf.layers.ConvolutionLayer> {
+import org.deeplearning4j.nn.layers.AbstractLayer;
+public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
     protected int blockSize;
 
     public PsiLayerImpl(NeuralNetConfiguration conf, DataType dataType) {
         super(conf, dataType);
         this.blockSize = ((PsiLayer) conf().getLayer()).getBlockSize();
+    }
+
+    @Override
+    public void clearNoiseWeightParams() {
+        //No op
     }
 
     @Override

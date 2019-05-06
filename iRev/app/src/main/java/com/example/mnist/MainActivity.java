@@ -115,8 +115,6 @@ public class MainActivity extends AppCompatActivity {
                     if (init_ds != 0) {
                         graph.addLayer("init_psi", new PsiLayer.Builder()
                                 .BlockSize(init_ds)
-                                .nIn(channels)
-                                .nOut(in_ch)
                                 .build(), "input");
                         lastLayer = "init_psi";
                     }
@@ -162,6 +160,7 @@ public class MainActivity extends AppCompatActivity {
                     ComputationGraphConfiguration conf = graph.build();
                     ComputationGraph model = new ComputationGraph(conf);
                     model.init();
+                    Map<String, INDArray> paramTable = model.paramTable(true);
                     Log.d("Output", "start output");
                     INDArray[] TestArray = new INDArray[1];
                     INDArray sample = Nd4j.ones(3, 3, 32, 32);
@@ -173,8 +172,8 @@ public class MainActivity extends AppCompatActivity {
                     INDArray[] outputGradients = probLayer.gradient(merge, label);
                     INDArray dwGradient = outputGradients[1];
                     INDArray dbGradient = outputGradients[2];
-                    gradient.setGradientFor("denseWeight", dwGradient);
-                    gradient.setGradientFor("denseBias", dbGradient);
+                    gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
                     INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
                     INDArray[] hiddens = Utils.splitHalf(merge);
                     HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
@@ -225,9 +224,9 @@ public class MainActivity extends AppCompatActivity {
                 dy1 = gradients.get(0);
                 dy2 = gradients.get(1);
                 // save graidents
-                gradsResult.put(prefix + "_conv1Weight", gradients.get(2));
-                gradsResult.put(prefix + "_conv2Weight", gradients.get(3));
-                gradsResult.put(prefix + "_conv3Weight", gradients.get(4));
+                gradsResult.put(prefix + "btnk_conv1Weight", gradients.get(2));
+                gradsResult.put(prefix + "btnk_conv2Weight", gradients.get(3));
+                gradsResult.put(prefix + "btnk_conv3Weight", gradients.get(4));
                 cnt -= 1;
             }
         }
