@@ -11,6 +11,7 @@ import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
+import org.nd4j.linalg.factory.Nd4j;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -131,6 +132,7 @@ public class Bottleneck extends SameDiffLayer {
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
         INDArray btnkOut = sd.execSingle(placeHolders, "conv3");
+        //Nd4j.getWorkspaceManager().destroyAllWorkspacesForCurrentThread();
         return btnkOut;
     }
 
@@ -156,6 +158,7 @@ public class Bottleneck extends SameDiffLayer {
         for (int i = 0; i < w_names.length; i++) {
             grads[i] = sd.getGradForVariable(w_names[i]).getArr();
         }
+        //Nd4j.getWorkspaceManager().destroyAllWorkspacesForCurrentThread();
         return grads;
     }
 }

@@ -134,17 +134,13 @@ public class MainActivity extends AppCompatActivity {
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            // we will create configuration with 10MB memory space preallocated
-            WorkspaceConfiguration initialConfig = WorkspaceConfiguration.builder()
-                    .initialSize(10 * 1024L * 1024L)
-                    .policyAllocation(AllocationPolicy.STRICT)
-                    .policyLearning(LearningPolicy.NONE)
-                    .build();
+            System.setProperty("org.bytedeco.javacpp.maxphysicalbytes", "0");
+            System.setProperty("org.bytedeco.javacpp.maxbytes", "0");
 
-            try (MemoryWorkspace ws = Nd4j.getWorkspaceManager().getAndActivateWorkspace(initialConfig, "SOME_ID")) {
+            try {
 
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{3, 3, 3};
+                int[] nBlocks = new int[]{15, 15, 15};
                 int[] nStrides = new int[]{1, 2, 2};
                 int dsCount = 2; // number of stride equals 2
                 int channels = 3;
@@ -157,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 16; // batch size for each epoch
+                int batchSize = 64; // batch size for each epoch
                 int mult = 4;
 
                 if (!new File(basePath + "/cifar").exists()) {
@@ -230,32 +226,45 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
+                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
+                        WeightInit.XAVIER);
 
-                // layers
-                BatchNormalization BNlayer = new BatchNormalization.Builder()
-                        .nIn(nChannels[nChannels.length - 1] * 2)
-                        .nOut(nChannels[nChannels.length - 1] * 2)
-                        .build();
-
-                ActivationLayer ReLulayer = new ActivationLayer.Builder()
-                        .activation(Activation.RELU)
-                        .build();
-
-                GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
-                        .poolingType(PoolingType.AVG)
-                        .build();
-
-                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
-                        .nOut(outputNum)
+                LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                         .activation(Activation.SOFTMAX)
                         .build();
 
+
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
-                        .addLayer("outputBN", BNlayer, "merge")
-                        .addLayer("outputRelu", ReLulayer, "outputBN")
-                        .addLayer("outputPool", Poolinglayer, "outputRelu")
-                        .addLayer("output", outputLayer, "outputPool")
-                        .setOutputs("output");
+                        .addLayer("outputProb", probLayer,"merge")
+                        .addLayer("output", lossLayer, "outputProb")
+                        .setOutputs("output", "merge");
+
+
+//                // layers
+//                BatchNormalization BNlayer = new BatchNormalization.Builder()
+//                        .nIn(nChannels[nChannels.length - 1] * 2)
+//                        .nOut(nChannels[nChannels.length - 1] * 2)
+//                        .build();
+//
+//                ActivationLayer ReLulayer = new ActivationLayer.Builder()
+//                        .activation(Activation.RELU)
+//                        .build();
+//
+//                GlobalPoolingLayer Poolinglayer = new GlobalPoolingLayer.Builder()
+//                        .poolingType(PoolingType.AVG)
+//                        .build();
+//
+//                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+//                        .nOut(outputNum)
+//                        .activation(Activation.SOFTMAX)
+//                        .build();
+//
+//                graph.addVertex("merge", new MergeVertex(), input1, input2)
+//                        .addLayer("outputBN", BNlayer, "merge")
+//                        .addLayer("outputRelu", ReLulayer, "outputBN")
+//                        .addLayer("outputPool", Poolinglayer, "outputRelu")
+//                        .addLayer("output", outputLayer, "outputPool")
+//                        .setOutputs("output");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -264,31 +273,37 @@ public class MainActivity extends AppCompatActivity {
                 model.setListeners(new ScoreIterationListener(1));
 
                 Log.d("Output", "start training");
-                for(int l=0; l<=numEpochs; l++) {
-                    model.fit(cifarTrain);
+
+//                for(int l=0; l<=numEpochs; l++) {
+//                    model.fit(cifarTrain);
+//                }
+
+                int i = 0;
+                while (cifarTrain.hasNext()) {
+                    Log.d("Iteration", "Running iter " + i);
+                    DataSet data = cifarTrain.next();
+                    //INDArray features = data.getFeatures();
+                    INDArray label = data.getLabels();
+                    INDArray features = data.getFeatures();
+                    INDArray merge = model.output(false, false, features)[1];
+                    Log.d("output", "finished output iter " + i);
+                    Gradient gradient = new DefaultGradient();
+                    INDArray[] outputGradients = probLayer.gradient(merge, label);
+                    INDArray dwGradient = outputGradients[1];
+                    INDArray dbGradient = outputGradients[2];
+                    gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                    INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                    INDArray[] hiddens = Utils.splitHalf(merge);
+                    HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+                            nBlocks, blockList, lossGradient);
+                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+                    }
+                    model.getUpdater().update(gradient, 0, 0, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                    i++;
                 }
 
-//                while (cifarTrain.hasNext()) {
-//                    DataSet data = cifarTrain.next();
-//                    INDArray features = data.getFeatures();
-//                    INDArray label = data.getLabels();
-//                    INDArray[] outputs = model.output(false, true, features);
-//                        Gradient gradient = new DefaultGradient();
-//                        INDArray merge = outputs[1];
-//                        INDArray[] outputGradients = probLayer.gradient(merge, label);
-//                        INDArray dwGradient = outputGradients[1];
-//                        INDArray dbGradient = outputGradients[2];
-//                        gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-//                        gradient.setGradientFor("outputProb_denseBias", dbGradient);
-//                        INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-//                        INDArray[] hiddens = Utils.splitHalf(features);
-//                        HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-//                                nBlocks, blockList, lossGradient);
-//                        for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-//                            gradient.setGradientFor(entry.getKey(), entry.getValue());
-//                        }
-//                        model.getUpdater().update(gradient, 0, 0, 3, LayerWorkspaceMgr.noWorkspaces());
-//                }
             } catch (Exception ex) {
                 Log.d("AsyncTaskRunner2 ", "catchIOException = " + ex);
             }
