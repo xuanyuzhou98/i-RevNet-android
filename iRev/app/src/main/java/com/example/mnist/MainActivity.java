@@ -103,7 +103,6 @@ public class MainActivity extends AppCompatActivity {
                 Random randNumGen = new Random(rngSeed);
                 int batchSize = 16; // batch size for each epoch
                 int mult = 4;
-                int ds = numColumns / (int) Math.pow(2, (dsCount +init_ds / 2));
                 try {
                     if (!new File(basePath + "/cifar").exists()) {
                         Log.d("Data download", "Data downloaded from " + dataUrl);
@@ -182,39 +181,48 @@ public class MainActivity extends AppCompatActivity {
                             .activation(Activation.SOFTMAX)
                             .build();
 
+
                     graph.addVertex("merge", new MergeVertex(), input1, input2)
                             .addLayer("outputProb", probLayer,"merge")
                             .addLayer("output", lossLayer, "outputProb")
-                            .setOutputs("output", "merge");
+                            .setOutputs("output", "merge");;
 
                     ComputationGraphConfiguration conf = graph.build();
                     ComputationGraph model = new ComputationGraph(conf);
                     model.init();
+//                    model.getConfiguration().setInferenceWorkspaceMode(WorkspaceMode.ENABLED);
+//                    model.getConfiguration().setTrainingWorkspaceMode(WorkspaceMode.ENABLED);
+
                     Log.d("Output", "start training");
 
-                    while (cifarTrain.hasNext()) {
-                        DataSet data = cifarTrain.next();
-                        INDArray features = data.getFeatures();
-                        INDArray label = data.getLabels();
-                        model.output
-                        INDArray[] outputs = model.output(features);
-                        Gradient gradient = new DefaultGradient();
-                        INDArray merge = outputs[1];
-                        INDArray[] outputGradients = probLayer.gradient(merge, label);
-                        INDArray dwGradient = outputGradients[1];
-                        INDArray dbGradient = outputGradients[2];
-                        gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                        gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                        INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                        INDArray[] hiddens = Utils.splitHalf(merge);
-                        HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-                                nBlocks, blockList, lossGradient);
-                        for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                            Log.d(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
-                            gradient.setGradientFor(entry.getKey(), entry.getValue());
-                        }
-                        model.getUpdater().update(gradient, 0, 0, 3, LayerWorkspaceMgr.noWorkspaces());
+                    Log.d("train model", "Train model....");
+                    for(int l=0; l<=numEpochs; l++) {
+                        model.fit(cifarTrain);
                     }
+
+
+
+//                    while (cifarTrain.hasNext()) {
+//                        DataSet data = cifarTrain.next();
+//                        INDArray features = data.getFeatures();
+//                        INDArray label = data.getLabels();
+//                        INDArray[] outputs = model.output(features);
+//                        Gradient gradient = new DefaultGradient();
+//                        INDArray merge = outputs[1];
+//                        INDArray[] outputGradients = probLayer.gradient(merge, label);
+//                        INDArray dwGradient = outputGradients[1];
+//                        INDArray dbGradient = outputGradients[2];
+//                        gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+//                        gradient.setGradientFor("outputProb_denseBias", dbGradient);
+//                        INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+//                        INDArray[] hiddens = Utils.splitHalf(features);
+//                        HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+//                                nBlocks, blockList, lossGradient);
+//                        for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+//                            gradient.setGradientFor(entry.getKey(), entry.getValue());
+//                        }
+//                        model.getUpdater().update(gradient, 0, 0, 3, LayerWorkspaceMgr.noWorkspaces());
+//                    }
                     Log.d("Success!", "Success!!!!!!!!");
                 } catch (Exception e) {
                     e.printStackTrace();

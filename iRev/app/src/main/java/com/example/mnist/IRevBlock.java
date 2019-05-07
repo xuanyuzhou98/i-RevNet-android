@@ -75,6 +75,8 @@ public class IRevBlock {
         this.output[0] = input2;
         this.output[1] = prefix + "_y1";
     }
+
+
     public INDArray[] injInverse(INDArray input1, INDArray input2) {
         INDArray[] x = new INDArray[2];
         INDArray merge = Nd4j.concat(1, input1, input2);
