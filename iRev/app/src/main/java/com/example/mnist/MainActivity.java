@@ -83,7 +83,7 @@ import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/mnist";
-    private static final String dataUrl = "http://github.com/myleott/mnist_png/raw/master/mnist_png.tar.gz";
+    private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -156,13 +156,13 @@ public class MainActivity extends AppCompatActivity {
                 int batchSize = 64; // batch size for each epoch
                 int mult = 4;
 
-                if (!new File(basePath + "/cifar").exists()) {
-                    Log.d("Data download", "Data downloaded from " + dataUrl);
-                    String localFilePath = basePath + "/cifar.tgz";
-                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
-                        DataUtilities.extractTarGz(localFilePath, basePath);
-                    }
-                }
+//                if (!new File(basePath + "/cifar").exists()) {
+//                    Log.d("Data download", "Data downloaded from " + dataUrl);
+//                    String localFilePath = basePath + "/cifar.tgz";
+//                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
+//                        DataUtilities.extractTarGz(localFilePath, basePath);
+//                    }
+//                }
                 // vectorization of train data
                 File trainData = new File(basePath + "/cifar/train");
                 FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
