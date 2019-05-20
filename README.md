@@ -19,11 +19,15 @@ https://machinethink.net/blog/training-on-device/
 3. Energy Comsumption (Battery) - we might want to train only when the device is charging
 
 # Papers for reference
-1. The Reversible Residual Network: Backpropagation Without Storing Activations:
-https://arxiv.org/abs/1707.04585
+1. [i-RevNet: Deep Invertible Networks](https://arxiv.org/pdf/1802.07088.pdf)
 
-2. i-RevNet: Deep Invertible Networks
-https://arxiv.org/abs/1802.07088
+2. [The Reversible Residual Network: Backpropagation Without Storing Activations](https://arxiv.org/pdf/1707.04585.pdf)
+
+3. [Sample Efficient Adaptive Text-To-Speech](https://arxiv.org/pdf/1809.10460.pdf)
+
+4. [Wavenet: A Generative Model For Raw Audio](https://arxiv.org/pdf/1609.03499.pdf)
+
+5. [Low-Memory Neural Network Training: A Technical Report](https://arxiv.org/pdf/1904.10631.pdf)
 
 # Useful Resources
 1. The library deeplearning4j we will be using:
