@@ -4,7 +4,7 @@ Train Neural Network on mobile devices
 # Our goal
 1. Amount of data is small: Pretrained model + few shot learning: the training data in devices is small.
 2. Explore more data types: Currently only using images as input.  Support machine translation etc.
-3, Moving from algorithm to application: Write a mobile application with on device training.
+3. Moving from algorithm to application: Write a mobile application with on device training.
 
 # Motivations for On-Device Training
 1. Customization: Customized model weights for each device
