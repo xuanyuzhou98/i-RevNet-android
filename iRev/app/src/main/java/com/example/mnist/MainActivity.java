@@ -16,6 +16,8 @@ import android.util.Log;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.deeplearning4j.nn.api.FwdPassType;
+import org.nd4j.linalg.api.buffer.DataBuffer;
+import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.enums.AllocationPolicy;
 import org.nd4j.linalg.api.memory.enums.LearningPolicy;
 import org.deeplearning4j.nn.api.Layer;
@@ -34,7 +36,6 @@ import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
-import org.nd4j.linalg.api.ndarray.INDArrayStatistics;
 import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
@@ -96,6 +97,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         verifyStoragePermission(MainActivity.this);
 
+        Nd4j.setDataType(DataType.HALF);
+        System.out.println("ND4J Data Type Setting: " + Nd4j.dataType());
+
         Button button = findViewById(R.id.button);
 
         button.setOnClickListener(new View.OnClickListener() {
@@ -140,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
             try {
 
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{15, 15, 15};
+                int[] nBlocks = new int[]{2, 2, 2};
                 int[] nStrides = new int[]{1, 2, 2};
                 int dsCount = 2; // number of stride equals 2
                 int channels = 3;
@@ -184,6 +188,7 @@ public class MainActivity extends AppCompatActivity {
                 cifarTest.setPreProcessor(scaler); // same normalization for better results
 
                 ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
+                        .dataType(DataType.HALF)
                         .seed(rngSeed)
                         .activation(Activation.IDENTITY)
                         .updater(new Nesterovs(0.1, 0.9))
