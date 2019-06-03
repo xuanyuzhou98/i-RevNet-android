@@ -279,27 +279,75 @@ public class MainActivity extends AppCompatActivity {
 //                }
 
                 int i = 0;
+                int counter = 0;
+                Gradient gradient = new DefaultGradient();
+
                 while (cifarTrain.hasNext()) {
                     Log.d("Iteration", "Running iter " + i);
                     DataSet data = cifarTrain.next();
-                    //INDArray features = data.getFeatures();
-                    INDArray label = data.getLabels();
-                    INDArray features = data.getFeatures();
-                    INDArray merge = model.output(false, false, features)[1];
-                    Log.d("output", "finished output iter " + i);
-                    Gradient gradient = new DefaultGradient();
-                    INDArray[] outputGradients = probLayer.gradient(merge, label);
-                    INDArray dwGradient = outputGradients[1];
-                    INDArray dbGradient = outputGradients[2];
-                    gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                    INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                    INDArray[] hiddens = Utils.splitHalf(merge);
-                    HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-                            nBlocks, blockList, lossGradient);
-                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+                    List<DataSet> microbatch = data.batchBy(10);
+                    Iterator<DataSet> micitor = microbatch.iterator();
+                    while (micitor.hasNext()){
+                        DataSet microdata = micitor.next();
+                        int micro = microdata.asList().size();
+                        INDArray microlabel = microdata.getLabels();
+                        INDArray microfeatures = microdata.getFeatures();
+
+                        INDArray micromerge = model.output(false, false, microfeatures)[1];
+                        INDArray[] microoutputGradients = probLayer.gradient(micromerge, microlabel);
+                        Gradient microgradient = new DefaultGradient();
+
+
+                        INDArray mdwGradient = microoutputGradients[1];
+                        INDArray mdbGradient = microoutputGradients[2];
+//                        microgradient.setGradientFor("outputProb_denseWeight", mdwGradient);
+//                        microgradient.setGradientFor("outputProb_denseBias", mdbGradient);
+                        INDArray[] microlossGradient = Utils.splitHalf(microoutputGradients[0]);
+                        INDArray[] microhiddens = Utils.splitHalf(micromerge);
+
+                        HashMap<String, INDArray> microgradientMap = computeGradient(model, microhiddens[0], microhiddens[1],
+                                nBlocks, blockList, microlossGradient);
+                        if (counter == 0) {
+                            gradient.setGradientFor("outputProb_denseWeight", mdwGradient);
+                            gradient.setGradientFor("outputProb_denseBias", mdbGradient);
+                            for (Map.Entry<String, INDArray> entry : microgradientMap.entrySet()) {
+                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            }
+                        }
+                        else{
+                            gradient.setGradientFor("outputProb_denseWeight", gradient.getGradientFor("outputProb_denseWeight").add(mdwGradient.div(micro)));
+                            gradient.setGradientFor("outputProb_denseBias", gradient.getGradientFor("outputProb_denseBias").add(mdbGradient.div(micro)));
+                            for (Map.Entry<String, INDArray> entry : microgradientMap.entrySet()) {
+                                gradient.setGradientFor(entry.getKey(), gradient.getGradientFor(entry.getKey()).add(entry.getValue().div(micro)));
+                            }
+                        }
+                        counter++;
+
+//                        for (Map.Entry<String, INDArray> entry : microgradientMap.entrySet()) {
+//                            microgradient.setGradientFor(entry.getKey(), entry.getValue());
+//                        }
+
                     }
+
+
+                    //INDArray features = data.getFeatures();
+//                    INDArray label = data.getLabels();
+//                    INDArray features = data.getFeatures();
+//                    INDArray merge = model.output(false, false, features)[1];
+//                    Log.d("output", "finished output iter " + i);
+//                    Gradient gradient = new DefaultGradient();
+//                    INDArray[] outputGradients = probLayer.gradient(merge, label);
+//                    INDArray dwGradient = outputGradients[1];
+//                    INDArray dbGradient = outputGradients[2];
+//                    gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+//                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
+//                    INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+//                    INDArray[] hiddens = Utils.splitHalf(merge);
+//                    HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+//                            nBlocks, blockList, lossGradient);
+//                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+//                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+//                    }
                     model.getUpdater().update(gradient, 0, 0, batchSize, LayerWorkspaceMgr.noWorkspaces());
                     i++;
                 }
