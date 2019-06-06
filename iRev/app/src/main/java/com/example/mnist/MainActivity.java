@@ -140,7 +140,7 @@ public class MainActivity extends AppCompatActivity {
             try {
 
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{15, 15, 15};
+                int[] nBlocks = new int[]{2, 2, 2};
                 int[] nStrides = new int[]{1, 2, 2};
                 int dsCount = 2; // number of stride equals 2
                 int channels = 3;
@@ -207,6 +207,8 @@ public class MainActivity extends AppCompatActivity {
                         .build();
                 graph.addLayer("firstRelu", relu, "tilde_x0");
                 int in_ch_Block = in_ch;
+                int inputH = numRows;
+                int inputW = numColumns;
                 String input1 = "x0"; //(3, 1, 32, 32)
                 String input2 = "firstRelu"; // (3, 2, 32, 32)
                 List<IRevBlock> blockList = new ArrayList<>();
@@ -216,13 +218,15 @@ public class MainActivity extends AppCompatActivity {
                         if (j == 0) {
                             stride = nStrides[i];
                         }
-                        IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride,
+                        IRevBlock innerIRevBlock = new IRevBlock(graph, batchSize, inputH, inputW, in_ch_Block, nChannels[i], stride,
                                 mult, input1, input2, String.valueOf(i) + String.valueOf(j));
+                        inputH = innerIRevBlock.getOutputH();    // inputH/W will change if stride = 2
+                        inputW = innerIRevBlock.getOutputW();
                         String[] outputs = innerIRevBlock.getOutput();
                         input1 = outputs[0];
                         input2 = outputs[1];
                         blockList.add(innerIRevBlock);
-                        in_ch_Block = 2 * nChannels[i];
+                        in_ch_Block = 2 * nChannels[i];  // input1 channel + input2 channel
                     }
                 }
 

@@ -26,7 +26,7 @@ public class IRevBlock {
     public Bottleneck bottleneck;
 
 
-    public IRevBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder,
+    public IRevBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder, int batchsize, int inputH, int inputW,
                      int in_ch, int out_ch, int stride, int mult, String input1,
                      String input2, String prefix) {
 //       input1: (3, 1, 32, 32)
@@ -41,7 +41,7 @@ public class IRevBlock {
         this.pad = pad;
         this.stride = stride;
         this.prefix = prefix;
-        this.bottleneck = new Bottleneck(in_ch/2, out_ch, stride,
+        this.bottleneck = new Bottleneck(batchsize, inputH, inputW,in_ch/2, out_ch, stride,
                 mult, WeightInit.XAVIER); // (3, 16, 32, 32)
         if (stride == 1 && pad != 0) {
             graphBuilder.addVertex(prefix + "merge", new MergeVertex(), input1, input2) //(3, 3, 32, 32)
@@ -141,6 +141,14 @@ public class IRevBlock {
         x[1] = x2;
 
         return x;
+    }
+
+    public int getOutputH() {
+        return this.bottleneck.getOutputShape()[0];
+    }
+
+    public int getOutputW() {
+        return this.bottleneck.getOutputShape()[1];
     }
 
     // This function computes the total gradient of the graph without referring to the stored activation
