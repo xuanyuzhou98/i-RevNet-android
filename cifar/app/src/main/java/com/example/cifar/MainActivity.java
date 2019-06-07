@@ -199,14 +199,13 @@ public class MainActivity extends AppCompatActivity {
                 ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
                         WeightInit.XAVIER);
 
-                LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
+                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                        .nOut(outputNum)
                         .activation(Activation.SOFTMAX)
                         .build();
 
-
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
-                        .addLayer("outputProb", probLayer,"merge")
-                        .addLayer("output", lossLayer, "outputProb")
+                        .addLayer("output", probLayer,"merge")
                         .setOutputs("output", "merge");
 
                 ComputationGraphConfiguration conf = graph.build();
@@ -257,7 +256,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             } catch (Exception ex) {
-                Log.d("AsyncTaskRunner2 ", "catchIOException = " + ex);
+                ex.printStackTrace();
             }
             return "";
         }

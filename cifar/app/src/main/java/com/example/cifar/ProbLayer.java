@@ -5,6 +5,7 @@ import android.util.Log;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.samediff.SDLayerParams;
 import org.deeplearning4j.nn.conf.layers.samediff.SameDiffLayer;
+import org.deeplearning4j.nn.conf.layers.samediff.SameDiffOutputLayer;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.autodiff.samediff.SameDiff;
@@ -15,12 +16,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-public class ProbLayer extends SameDiffLayer {
+public class ProbLayer extends SameDiffOutputLayer {
     private int in_ch;
     private int out_ch;
     private int height;
     private int width;
     private Map<String, SDVariable> paramTable;
+    protected WeightInit weightInit;
 
     public ProbLayer(int in_ch, int out_ch, int height, int width, WeightInit weightInit) {
         this.in_ch = in_ch;
@@ -31,17 +33,16 @@ public class ProbLayer extends SameDiffLayer {
     }
 
     /**
-     * In the defineLayer method, you define the actual layer forward pass
-     * For this layer, we are returning out = activationFn( input*weights + bias)
-     *
-     * @param sd         The SameDiff instance for this layer
-     * @param layerInput A SDVariable representing the input activations for the layer
-     * @param paramTable A map of parameters for the layer. These are the SDVariables corresponding to whatever you defined
-     *                   in the defineParameters method
-     * @return
+     * Define the output layer
+     * @param sd   SameDiff instance
+     * @param layerInput Input to the layer
+     * @param labels     Labels variable (or null if {@link #labelsRequired()} returns false
+     * @param paramTable Parameter table - keys as defined by {@link #defineParameters(SDLayerParams)}
+     * @return The final layer variable corresponding to the score/loss during forward pass. This must be a single scalar value.
      */
     @Override
-    public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
+    public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, SDVariable labels,
+                                  Map<String, SDVariable> paramTable) {
         // parameters
         this.paramTable = paramTable;
         SDVariable denseWeight = paramTable.get("denseWeight");
@@ -56,10 +57,24 @@ public class ProbLayer extends SameDiffLayer {
                 .sH(1).sW(1)
                 .build();
         SDVariable outputPool = sd.cnn().avgPooling2d("outputPool", outputRelu, c);
-        SDVariable outputSqueeze = sd.squeeze(outputPool, 2);
-        SDVariable outputReshape = sd.squeeze(outputSqueeze, 2);
+        SDVariable outputSqueeze = sd.squeeze("squeeze", outputPool, 2);
+        SDVariable outputReshape = sd.squeeze("reshape", outputSqueeze, 2);
         SDVariable outputDense = sd.nn().linear("outputDense", outputReshape, denseWeight, denseBias);
-        return outputDense;
+        SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labels, outputDense);
+        return loss;
+    }
+
+    /**
+     * Output layers should terminate in a single scalar value (i.e., a score) - however, sometimes the output activations
+     * (such as softmax probabilities) need to be returned. When this is the case, we need to know the name of the
+     * SDVariable that corresponds to these.<br>
+     * If the final network activations are just the input to the layer, simply return "input"
+     *
+     * @return The name of the activations to return when performing forward pass
+     */
+    @Override
+    public String activationsVertexName(){
+        return "loss";
     }
 
     /**
@@ -87,7 +102,7 @@ public class ProbLayer extends SameDiffLayer {
     public InputType getOutputType(int layerIndex, InputType inputType) {
         //In this method: you define the type of output/activations, if appropriate, given the type of input to the layer
         //This is used in a few methods in DL4J to calculate activation shapes, memory requirements etc
-        return InputType.convolutional(1, 1, this.out_ch);
+        return InputType.feedForward(this.out_ch);
     }
 
     /**
@@ -99,8 +114,7 @@ public class ProbLayer extends SameDiffLayer {
         SDVariable layerInput = sd.var("input", x);
         SDVariable labelInput = sd.constant("label", label);
         layerInput.isPlaceHolder();
-        SDVariable output = defineLayer(sd, layerInput, this.paramTable, null);
-        sd.loss().softmaxCrossEntropy("loss", output, labelInput);
+        SDVariable loss = defineLayer(sd, layerInput, labelInput, this.paramTable);
         String[] w_names = new String[]{"input", "denseWeight", "denseBias"};
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
