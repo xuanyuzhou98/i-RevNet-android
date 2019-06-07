@@ -54,3 +54,4 @@ http://www.ee.oulu.fi/~olli/Projects/Lumber.Grading.html
 
 7. A blog about Training on the device:
 https://machinethink.net/blog/training-on-device/
+
