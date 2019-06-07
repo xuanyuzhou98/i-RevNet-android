@@ -104,7 +104,7 @@ public class ProbLayer extends SameDiffLayer {
         String[] w_names = new String[]{"input", "denseWeight", "denseBias"};
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
-        sd.execBackwards(placeHolders, w_names);
+        sd.execBackwards(placeHolders);
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
             grads[i] = sd.getGradForVariable(w_names[i]).getArr();
