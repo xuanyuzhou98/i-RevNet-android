@@ -53,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
     private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final boolean manual_gradients = true;
+    private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -64,6 +65,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         verifyStoragePermission(MainActivity.this);
+
+        if (half_precision) {
+            Nd4j.setDefaultDataTypes(DataType.HALF, DataType.HALF);
+        }
+
+        System.out.println("ND4J Data Type Setting: " + Nd4j.dataType());
 
         Button button = findViewById(R.id.button);
 
@@ -103,9 +110,6 @@ public class MainActivity extends AppCompatActivity {
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            System.setProperty("org.bytedeco.javacpp.maxphysicalbytes", "0");
-            System.setProperty("org.bytedeco.javacpp.maxbytes", "0");
-
             try {
 
                 int[] nChannels = new int[]{16, 64, 256};
@@ -152,15 +156,20 @@ public class MainActivity extends AppCompatActivity {
                 DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
                 cifarTest.setPreProcessor(scaler); // same normalization for better results
 
-                ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
+
+                NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         //.dataType(DataType.HALF)
                         .seed(rngSeed)
                         .activation(Activation.IDENTITY)
                         .updater(new Nesterovs(0.1, 0.9))
                         .weightInit(WeightInit.XAVIER)
                         .l1(1e-7)
-                        .l2(5e-5)
-                        .graphBuilder();
+                        .l2(5e-5);
+                if (half_precision) {
+                    config.dataType(DataType.HALF);
+                }
+                ComputationGraphConfiguration.GraphBuilder graph = config.graphBuilder();
+
                 graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels)); //(3, 3, 32, 32)
                 String lastLayer = "input";
                 if (init_ds != 0) {
@@ -211,7 +220,6 @@ public class MainActivity extends AppCompatActivity {
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
                 model.init();
-                Nd4j.getMemoryManager().togglePeriodicGc(false);
                 model.setListeners(new ScoreIterationListener(1));
 
                 Log.d("Output", "start training");
