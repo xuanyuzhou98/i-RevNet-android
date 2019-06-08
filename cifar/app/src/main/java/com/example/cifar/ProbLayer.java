@@ -16,7 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-public class ProbLayer extends SameDiffOutputLayer {
+public class ProbLayer extends SameDiffLayer {
     private int in_ch;
     private int out_ch;
     private int height;
@@ -33,16 +33,17 @@ public class ProbLayer extends SameDiffOutputLayer {
     }
 
     /**
-     * Define the output layer
-     * @param sd   SameDiff instance
-     * @param layerInput Input to the layer
-     * @param labels     Labels variable (or null if {@link #labelsRequired()} returns false
-     * @param paramTable Parameter table - keys as defined by {@link #defineParameters(SDLayerParams)}
-     * @return The final layer variable corresponding to the score/loss during forward pass. This must be a single scalar value.
+     * In the defineLayer method, you define the actual layer forward pass
+     * For this layer, we are returning out = activationFn( input*weights + bias)
+     *
+     * @param sd         The SameDiff instance for this layer
+     * @param layerInput A SDVariable representing the input activations for the layer
+     * @param paramTable A map of parameters for the layer. These are the SDVariables corresponding to whatever you defined
+     *                   in the defineParameters method
+     * @return
      */
     @Override
-    public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, SDVariable labels,
-                                  Map<String, SDVariable> paramTable) {
+    public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
         SDVariable denseWeight = paramTable.get("denseWeight");
@@ -60,21 +61,7 @@ public class ProbLayer extends SameDiffOutputLayer {
         SDVariable outputSqueeze = sd.squeeze("squeeze", outputPool, 2);
         SDVariable outputReshape = sd.squeeze("reshape", outputSqueeze, 2);
         SDVariable outputDense = sd.nn().linear("outputDense", outputReshape, denseWeight, denseBias);
-        SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labels, outputDense);
-        return loss;
-    }
-
-    /**
-     * Output layers should terminate in a single scalar value (i.e., a score) - however, sometimes the output activations
-     * (such as softmax probabilities) need to be returned. When this is the case, we need to know the name of the
-     * SDVariable that corresponds to these.<br>
-     * If the final network activations are just the input to the layer, simply return "input"
-     *
-     * @return The name of the activations to return when performing forward pass
-     */
-    @Override
-    public String activationsVertexName(){
-        return "loss";
+        return outputDense;
     }
 
     /**
@@ -102,7 +89,7 @@ public class ProbLayer extends SameDiffOutputLayer {
     public InputType getOutputType(int layerIndex, InputType inputType) {
         //In this method: you define the type of output/activations, if appropriate, given the type of input to the layer
         //This is used in a few methods in DL4J to calculate activation shapes, memory requirements etc
-        return InputType.feedForward(this.out_ch);
+        return InputType.convolutional(1, 1, this.out_ch);
     }
 
     /**
@@ -114,7 +101,8 @@ public class ProbLayer extends SameDiffOutputLayer {
         SDVariable layerInput = sd.var("input", x);
         SDVariable labelInput = sd.constant("label", label);
         layerInput.isPlaceHolder();
-        SDVariable loss = defineLayer(sd, layerInput, labelInput, this.paramTable);
+        SDVariable outputDense = defineLayer(sd, layerInput, paramTable, null);
+        SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, outputDense);
         String[] w_names = new String[]{"input", "denseWeight", "denseBias"};
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
