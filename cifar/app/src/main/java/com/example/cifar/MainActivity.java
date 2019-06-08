@@ -110,6 +110,8 @@ public class MainActivity extends AppCompatActivity {
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
+            System.setProperty("org.bytedeco.javacpp.maxbytes", "2G");
+
             try {
 
                 int[] nChannels = new int[]{16, 64, 256};
