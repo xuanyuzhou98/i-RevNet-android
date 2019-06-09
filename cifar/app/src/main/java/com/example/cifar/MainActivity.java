@@ -222,8 +222,8 @@ public class MainActivity extends AppCompatActivity {
                         .build();
 
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
-                        .addLayer("output", probLayer,"merge")
-                        .setOutputs("output", "merge");
+                        .addLayer("outputProb", probLayer,"merge")
+                        .setOutputs("outputProb", "merge");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
