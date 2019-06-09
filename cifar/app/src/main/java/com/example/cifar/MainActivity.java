@@ -65,6 +65,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         verifyStoragePermission(MainActivity.this);
+        System.setProperty("org.bytedeco.javacpp.maxphysicalbytes", "0");
+        System.setProperty("org.bytedeco.javacpp.maxbytes", "0");
+
 
         if (half_precision) {
             Nd4j.setDefaultDataTypes(DataType.HALF, DataType.HALF);
@@ -110,9 +113,12 @@ public class MainActivity extends AppCompatActivity {
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            System.setProperty("org.bytedeco.javacpp.maxbytes", "2G");
+
 
             try {
+                Runtime rt = Runtime.getRuntime();
+                long maxMemory = rt.maxMemory();
+                Log.v("onCreate", "maxMemory:" + Long.toString(maxMemory));
 
                 int[] nChannels = new int[]{16, 64, 256};
                 int[] nBlocks = new int[]{2, 2, 2};
