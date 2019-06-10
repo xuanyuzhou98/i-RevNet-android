@@ -121,7 +121,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.v("onCreate", "maxMemory:" + Long.toString(maxMemory));
 
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{2, 2, 2};
+                int[] nBlocks = new int[]{6, 6, 6};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
