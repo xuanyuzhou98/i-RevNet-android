@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
     private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final boolean manual_gradients = true;
-    private static final boolean half_precision = true;
+    private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
