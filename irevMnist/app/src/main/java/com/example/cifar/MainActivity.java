@@ -50,8 +50,8 @@ import java.util.Random;
 
 
 public class MainActivity extends AppCompatActivity {
-    private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
-    private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
+    private static final String basePath = Environment.getExternalStorageDirectory() + "/mnist";
+    private static final String dataUrl = "http://github.com/myleott/mnist_png/raw/master/mnist_png.tar.gz";
     private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -123,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
                 int[] nChannels = new int[]{16, 64, 256};
                 int[] nBlocks = new int[]{2, 2, 2};
                 int[] nStrides = new int[]{1, 2, 2};
-                int channels = 3;
+                int channels = 1;
                 int init_ds = 0;
                 int in_ch = channels * (int) Math.pow(2, init_ds);
                 int n = in_ch / 2;
@@ -133,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 64; // batch size for each epoch
+                int batchSize = 32; // batch size for each epoch
                 int mult = 4;
 
                 if (!new File(basePath + "/mnist_png").exists()) {
