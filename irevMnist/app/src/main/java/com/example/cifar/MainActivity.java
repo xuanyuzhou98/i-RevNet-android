@@ -123,13 +123,14 @@ public class MainActivity extends AppCompatActivity {
                 int[] nChannels = new int[]{16, 64, 256};
                 int[] nBlocks = new int[]{2, 2, 2};
                 int[] nStrides = new int[]{1, 2, 2};
+                int strideTwoCount = 2;
                 int channels = 1;
-                int init_ds = 0;
+                int init_ds = 1;
                 int in_ch = channels * (int) Math.pow(2, init_ds);
                 int n = in_ch / 2;
                 int outputNum = 10; // number of output classes
-                final int numRows = 32;
-                final int numColumns = 32;
+                final int numRows = 28;
+                final int numColumns = 28;
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
@@ -212,7 +213,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
+                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum,
+                        numRows / (int)Math.pow(2, strideTwoCount),
+                        numColumns / (int)Math.pow(2, strideTwoCount),
                         WeightInit.XAVIER);
 
                 OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
