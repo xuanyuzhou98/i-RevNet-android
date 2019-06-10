@@ -125,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
                 int[] nStrides = new int[]{1, 2, 2};
                 int strideTwoCount = 2;
                 int channels = 1;
-                int init_ds = 1;
+                int init_ds = 2;
                 int in_ch = channels * (int) Math.pow(2, init_ds);
                 int n = in_ch / 2;
                 int outputNum = 10; // number of output classes
