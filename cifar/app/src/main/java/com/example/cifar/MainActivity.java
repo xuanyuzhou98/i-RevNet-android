@@ -233,38 +233,41 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("Output", "start training");
                 if (manual_gradients) {
                     int i = 0;
-                    while (cifarTrain.hasNext()) {
-                        Log.d("Iteration", "Running iter " + i);
-                        DataSet data = cifarTrain.next();
-                        INDArray label = data.getLabels();
-                        INDArray features = data.getFeatures();
-                        long StartTime = System.nanoTime();
-                        INDArray merge = model.output(false, false, features)[1];
-                        long EndTime = System.nanoTime();
-                        double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                        Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                        Log.d("output", "finished forward iter " + i);
+                    for (int epoch = 0; epoch <= numEpochs; epoch++) {
+                        Log.d("Epoch", "Running epoch " + epoch);
+                        while (cifarTrain.hasNext()) {
+                            Log.d("Iteration", "Running iter " + i);
+                            DataSet data = cifarTrain.next();
+                            INDArray label = data.getLabels();
+                            INDArray features = data.getFeatures();
+                            long StartTime = System.nanoTime();
+                            INDArray merge = model.output(false, false, features)[1];
+                            long EndTime = System.nanoTime();
+                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
+                            Log.d("output", "finished forward iter " + i);
 
-                        StartTime = System.nanoTime();
-                        Gradient gradient = new DefaultGradient();
-                        INDArray[] outputGradients = probLayer.gradient(merge, label);
-                        INDArray dwGradient = outputGradients[1];
-                        INDArray dbGradient = outputGradients[2];
-                        gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                        gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                        INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                        INDArray[] hiddens = Utils.splitHalf(merge);
-                        HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-                                nBlocks, blockList, lossGradient);
-                        for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                            gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            StartTime = System.nanoTime();
+                            Gradient gradient = new DefaultGradient();
+                            INDArray[] outputGradients = probLayer.gradient(merge, label);
+                            INDArray dwGradient = outputGradients[1];
+                            INDArray dbGradient = outputGradients[2];
+                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                            INDArray[] hiddens = Utils.splitHalf(merge);
+                            HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+                                    nBlocks, blockList, lossGradient);
+                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            }
+                            model.getUpdater().update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                            EndTime = System.nanoTime();
+                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+                            Log.d("output", "finished backward iter " + i);
+                            i++;
                         }
-                        model.getUpdater().update(gradient, 0, 0, batchSize, LayerWorkspaceMgr.noWorkspaces());
-                        EndTime = System.nanoTime();
-                        elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                        Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                        Log.d("output", "finished backward iter " + i);
-                        i++;
                     }
                 } else {
                     for(int l=0; l <= numEpochs; l++) {
