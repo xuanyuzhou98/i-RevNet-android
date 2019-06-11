@@ -13,7 +13,12 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
 
+import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.api.buffer.DataType;
+import org.nd4j.linalg.api.memory.MemoryWorkspace;
+import org.nd4j.linalg.api.memory.conf.WorkspaceConfiguration;
+import org.nd4j.linalg.api.memory.enums.AllocationPolicy;
+import org.nd4j.linalg.api.memory.enums.LearningPolicy;
 import org.nd4j.linalg.dataset.DataSet;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
@@ -39,8 +44,11 @@ import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
+import org.nd4j.linalg.memory.MemoryManager;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.lang.Math;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,11 +57,12 @@ import java.util.Map;
 import java.util.Random;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity
+        implements ActivityCompat.OnRequestPermissionsResultCallback {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
     private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final boolean manual_gradients = true;
-    private static final boolean half_precision = true;
+    private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -113,15 +122,16 @@ public class MainActivity extends AppCompatActivity {
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
+            // we will create configuration with 10MB memory space preallocated
+            WorkspaceConfiguration initialConfig = WorkspaceConfiguration.builder()
+                    .initialSize(10 * 1024L * 1024L)
+                    .policyAllocation(AllocationPolicy.STRICT)
+                    .policyLearning(LearningPolicy.NONE)
+                    .build();
 
-
-            try {
-                Runtime rt = Runtime.getRuntime();
-                long maxMemory = rt.maxMemory();
-                Log.v("onCreate", "maxMemory:" + Long.toString(maxMemory));
-
+            try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{2, 2, 2};
+                int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -133,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 64; // batch size for each epoch
+                int batchSize = 16; // batch size for each epoch
                 int mult = 4;
 
                 if (!new File(basePath + "/cifar").exists()) {
@@ -228,6 +238,8 @@ public class MainActivity extends AppCompatActivity {
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
                 model.init();
+                MemoryManager mg = Nd4j.getMemoryManager();
+                mg.togglePeriodicGc(true);
                 model.setListeners(new ScoreIterationListener(1));
 
                 Log.d("Output", "start training");
@@ -308,6 +320,7 @@ public class MainActivity extends AppCompatActivity {
                     String prefix = iRev.getPrefix();
                     dy1 = gradients.get(0);
                     dy2 = gradients.get(1);
+
                     // save graidents
                     gradsResult.put(prefix + "btnk_conv1Weight", gradients.get(2));
                     gradsResult.put(prefix + "btnk_conv2Weight", gradients.get(3));

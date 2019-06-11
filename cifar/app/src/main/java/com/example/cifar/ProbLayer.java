@@ -111,7 +111,6 @@ public class ProbLayer extends SameDiffLayer {
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
             grads[i] = sd.getGradForVariable(w_names[i]).getArr();
-//            Log.d("grad", grads[i].toString());
         }
         return grads;
     }
