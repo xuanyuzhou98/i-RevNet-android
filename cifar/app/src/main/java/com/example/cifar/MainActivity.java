@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Iterator;
 
 
 public class MainActivity extends AppCompatActivity
@@ -143,7 +144,7 @@ public class MainActivity extends AppCompatActivity
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 16; // batch size for each epoch
+                int batchSize = 100; // batch size for each epoch
                 int mult = 4;
 
                 if (!new File(basePath + "/cifar").exists()) {
@@ -247,38 +248,65 @@ public class MainActivity extends AppCompatActivity
                     int i = 0;
                     for (int epoch = 0; epoch <= numEpochs; epoch++) {
                         Log.d("Epoch", "Running epoch " + epoch);
+                        int counter = 0;
                         while (cifarTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
                             DataSet data = cifarTrain.next();
-                            INDArray label = data.getLabels();
-                            INDArray features = data.getFeatures();
-                            long StartTime = System.nanoTime();
-                            INDArray merge = model.output(false, false, features)[1];
-                            long EndTime = System.nanoTime();
-                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished forward iter " + i);
-
-                            StartTime = System.nanoTime();
+                            List<DataSet> microbatch = data.batchBy(10);
+                            Iterator<DataSet> micitor = microbatch.iterator();
                             Gradient gradient = new DefaultGradient();
-                            INDArray[] outputGradients = probLayer.gradient(merge, label);
-                            INDArray dwGradient = outputGradients[1];
-                            INDArray dbGradient = outputGradients[2];
-                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                            INDArray[] hiddens = Utils.splitHalf(merge);
-                            HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-                                    nBlocks, blockList, lossGradient);
-                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            while (micitor.hasNext()) {
+                                DataSet microdata = micitor.next();
+                                int micro = microdata.asList().size();
+                                INDArray microlabel = microdata.getLabels();
+                                INDArray microfeatures = microdata.getFeatures();
+
+
+                                long StartTime = System.nanoTime();
+                                INDArray micromerge = model.output(false, false, microfeatures)[1];
+                                long EndTime = System.nanoTime();
+                                double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                                Log.d("forward time", String.valueOf(elapsedTimeInSecond));
+                                Log.d("output", "finished forward iter " + i + "minibatch" + counter);
+
+                                StartTime = System.nanoTime();
+
+                                Gradient microgradient = new DefaultGradient();
+                                INDArray[] microoutputGradients = probLayer.gradient(micromerge, microlabel);
+                                INDArray mdwGradient = microoutputGradients[1];
+                                INDArray mdbGradient = microoutputGradients[2];
+                                INDArray[] microlossGradient = Utils.splitHalf(microoutputGradients[0]);
+                                INDArray[] microhiddens = Utils.splitHalf(micromerge);
+                                HashMap<String, INDArray> microgradientMap = computeGradient(model, microhiddens[0], microhiddens[1],
+                                        nBlocks, blockList, microlossGradient);
+
+
+
+                                if (counter == 0) {
+                                    microgradient.setGradientFor("outputProb_denseWeight", mdwGradient);
+                                    microgradient.setGradientFor("outputProb_denseBias", mdbGradient);
+                                    for (Map.Entry<String, INDArray> entry : microgradientMap.entrySet()) {
+                                        gradient.setGradientFor(entry.getKey(), entry.getValue().div(micro));
+                                    }
+                                }
+                                else{
+                                    microgradient.setGradientFor("outputProb_denseWeight", mdwGradient);
+                                    microgradient.setGradientFor("outputProb_denseBias",mdbGradient);
+                                    for (Map.Entry<String, INDArray> entry : microgradientMap.entrySet()) {
+                                        gradient.setGradientFor(entry.getKey(), gradient.getGradientFor(entry.getKey()).add(entry.getValue().div(micro)));
+                                    }
+                                }
+                                counter++;
+
+
+
+                                EndTime = System.nanoTime();
+                                elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                                Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+                                Log.d("output", "finished backward iter " + i + "minibatch" + counter);
+                                i++;
                             }
                             model.getUpdater().update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
-                            EndTime = System.nanoTime();
-                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished backward iter " + i);
-                            i++;
                         }
                     }
                 } else {
