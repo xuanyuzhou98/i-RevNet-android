@@ -5,7 +5,6 @@ import android.util.Log;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.samediff.SDLayerParams;
 import org.deeplearning4j.nn.conf.layers.samediff.SameDiffLayer;
-import org.deeplearning4j.nn.conf.layers.samediff.SameDiffOutputLayer;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.autodiff.samediff.SameDiff;
@@ -17,19 +16,25 @@ import java.util.Map;
 
 
 public class ProbLayer extends SameDiffLayer {
+    private int batchsize;
+    private int inputH;
+    private int inputW;
     private int in_ch;
     private int out_ch;
-    private int height;
-    private int width;
+    private int poolKernelH;
+    private int poolKernelW;
     private Map<String, SDVariable> paramTable;
     protected WeightInit weightInit;
 
-    public ProbLayer(int in_ch, int out_ch, int height, int width, WeightInit weightInit) {
+    public ProbLayer(int batchSize, int inputH, int inputW, int in_ch, int out_ch, int poolKernelH, int poolKernelW, WeightInit weightInit) {
+        this.batchsize = batchSize;
+        this.inputH = inputH;
+        this.inputW = inputW;
         this.in_ch = in_ch;
         this.out_ch = out_ch;
         this.weightInit = weightInit;
-        this.height = height;
-        this.width = width;
+        this.poolKernelH = poolKernelH;
+        this.poolKernelW = poolKernelW;
     }
 
     /**
@@ -46,20 +51,30 @@ public class ProbLayer extends SameDiffLayer {
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
-        SDVariable denseWeight = paramTable.get("denseWeight");
-        SDVariable denseBias = paramTable.get("denseBias");
-        sd.var(denseWeight);
-        sd.var(denseBias);
-        SDVariable outputRelu = sd.nn().relu("outputRelu", layerInput, 0.);
+
+        SDVariable convOutReshape = layerInput.permute(0, 2, 3, 1).reshape(batchsize * inputH * inputW, in_ch);   // reshape to (N*H*W, C)
+        SDVariable convOutMean = sd.mean(convOutReshape, 0);
+        SDVariable convOutVar = sd.variance(convOutReshape, true, 0);
+        SDVariable bnFinalGamma = sd.zero("bnFinalGamma", in_ch);
+        SDVariable bnFinalBeta = sd.one("bnFinalBeta", in_ch);
+        SDVariable bnFinal = sd.nn().batchNorm("bnFinal", layerInput, convOutMean, convOutVar, bnFinalGamma, bnFinalBeta, 1e-6, 1);
+
+        SDVariable outputRelu = sd.nn().relu("outputRelu", bnFinal, 0.);
+
         Pooling2DConfig c = Pooling2DConfig.builder()
-                .kH(this.height).kW(this.width)
+                .kH(this.poolKernelH).kW(this.poolKernelW)
                 .pH(0).pW(0)
                 .isSameMode(false)
-                .sH(1).sW(1)
+                .sH(1).sW(1)     // So pooling layer doesn't change H, W, C
                 .build();
         SDVariable outputPool = sd.cnn().avgPooling2d("outputPool", outputRelu, c);
         SDVariable outputSqueeze = sd.squeeze("squeeze", outputPool, 2);
         SDVariable outputReshape = sd.squeeze("reshape", outputSqueeze, 2);
+
+        SDVariable denseWeight = paramTable.get("denseWeight");
+        SDVariable denseBias = paramTable.get("denseBias");
+        sd.var(denseWeight);
+        sd.var(denseBias);
         SDVariable outputDense = sd.nn().linear("outputDense", outputReshape, denseWeight, denseBias);
         return outputDense;
     }
@@ -74,7 +89,7 @@ public class ProbLayer extends SameDiffLayer {
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
         initWeights(in_ch, out_ch, weightInit, params.get("denseWeight"));
-        initWeights(1, out_ch, weightInit, params.get("denseBias"));
+        initWeights(1, out_ch, WeightInit.ZERO, params.get("denseBias"));
     }
 
 

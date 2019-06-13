@@ -15,14 +15,23 @@ import java.util.Map;
 
 
 public class Bottleneck extends SameDiffLayer {
+    private int batchsize;
+    private int inputH;
+    private int inputW;
+    private int outputH;
+    private int outputW;
+    private final int FILTERSIZE = 3;
     private int stride;
     private int in_ch;
     private int out_ch;
     private int mult;
     private Map<String, SDVariable> paramTable;
 
-    public Bottleneck(int in_ch, int out_ch, int stride,
+    public Bottleneck(int batchsize, int inputH, int inputW, int in_ch, int out_ch, int stride,
                       int mult, WeightInit weightInit) {
+        this.batchsize = batchsize;
+        this.inputH = inputH;
+        this.inputW = inputW;
         this.in_ch = in_ch;
         this.out_ch = out_ch;
         this.stride = stride;
@@ -44,7 +53,7 @@ public class Bottleneck extends SameDiffLayer {
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
-        int convStride = 3;
+
         SDVariable conv1Weight = paramTable.get("conv1Weight");
         SDVariable conv2Weight = paramTable.get("conv2Weight");
         SDVariable conv3Weight = paramTable.get("conv3Weight");
@@ -53,31 +62,55 @@ public class Bottleneck extends SameDiffLayer {
         sd.var(conv3Weight);
 
         Conv2DConfig c1 = Conv2DConfig.builder()
-                .kH(convStride).kW(convStride)
+                .kH(this.FILTERSIZE).kW(this.FILTERSIZE)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
                 .sH(this.stride).sW(this.stride)
                 .build();
         SDVariable conv1 = sd.cnn().conv2d("conv1", new SDVariable[]{layerInput, conv1Weight}, c1);
-        SDVariable act1 = sd.nn().relu("act1", conv1, 0.);
+
+        int[] conv1Shape = Utils.getConvLayerOutShape(inputH, inputW, FILTERSIZE, this.stride, 1);
+
+        SDVariable conv1Reshape = conv1.permute(0, 2, 3, 1).reshape(batchsize * conv1Shape[0] * conv1Shape[1], out_ch/mult);   // reshape to (N*H*W, C)
+        SDVariable mean1 = sd.mean(conv1Reshape, 0);
+        SDVariable var1 = sd.variance(conv1Reshape, true, 0);
+        SDVariable gamma1 = sd.zero("gamma1", out_ch/mult);  // N=64 C=out_ch/mult H=conv1Height W=conv1Weight axis=1 input.size(axis)=out_ch/mult
+        SDVariable beta1 = sd.one("beta1", out_ch/mult);
+        SDVariable bn1 = sd.nn().batchNorm("bn1", conv1, mean1, var1, gamma1, beta1, 1e-6, 1);
+
+        SDVariable act1 = sd.nn().relu("act1", bn1, 0.);
         Conv2DConfig c2 = Conv2DConfig.builder()
-                .kH(convStride).kW(convStride)
+                .kH(FILTERSIZE).kW(FILTERSIZE)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
                 .sH(1).sW(1)
                 .build();
         SDVariable conv2 = sd.cnn().conv2d("conv2", new SDVariable[]{act1, conv2Weight}, c2);
-        SDVariable act2 = sd.nn().relu("act2", conv2, 0.);
+
+        int[] conv2Shape = Utils.getConvLayerOutShape(conv1Shape[0], conv1Shape[1], FILTERSIZE, 1, 1);
+        SDVariable conv2Reshape = conv2.permute(0, 2, 3, 1).reshape(batchsize * conv2Shape[0] * conv2Shape[1], out_ch/mult);   // reshape to (N*H*W, C)
+        SDVariable mean2 = sd.mean(conv2Reshape, 0);
+        SDVariable var2 = sd.variance(conv2Reshape, true, 0);
+        SDVariable gamma2 = sd.zero("gamma2", out_ch/mult);  // N=64 C=out_ch/mult H=conv1Height W=conv1Weight axis=1 input.size(axis)=out_ch/mult
+        SDVariable beta2 = sd.one("beta2", out_ch/mult);
+        SDVariable bn2 = sd.nn().batchNorm("bn2", conv1, mean2, var2, gamma2, beta2, 1e-6, 1);
+
+        SDVariable act2 = sd.nn().relu("act2", bn2, 0.);
         Conv2DConfig c3 = Conv2DConfig.builder()
-                .kH(convStride).kW(convStride)
+                .kH(FILTERSIZE).kW(FILTERSIZE)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
                 .sH(1).sW(1)
                 .build();
         SDVariable conv3 = sd.cnn().conv2d("conv3", new SDVariable[]{act2, conv3Weight}, c3);
+
+        int[] conv3Shape = Utils.getConvLayerOutShape(conv2Shape[0], conv2Shape[1], FILTERSIZE, 1, 1);
+        this.outputH = conv3Shape[0];
+        this.outputW = conv3Shape[1];
+
         return conv3;
     }
 
@@ -115,6 +148,14 @@ public class Bottleneck extends SameDiffLayer {
         outH = (outH - 3 + 2 * 1) + 1;
         outW = (outW - 3 + 2 * 1) + 1;
         return InputType.convolutional(outH, outW, this.out_ch);
+    }
+
+    public int[] getOutputShape() {
+        int[] conv1Shape = Utils.getConvLayerOutShape(inputH, inputW, FILTERSIZE, this.stride, 1);
+        int[] conv2Shape = Utils.getConvLayerOutShape(conv1Shape[0], conv1Shape[1], FILTERSIZE, 1, 1);
+        int[] conv3Shape = Utils.getConvLayerOutShape(conv2Shape[0], conv2Shape[1], FILTERSIZE, 1, 1);
+
+        return new int[]{conv3Shape[0], conv3Shape[1]};
     }
 
     /**

@@ -204,6 +204,8 @@ public class MainActivity extends AppCompatActivity
                         .build();
                 graph.addLayer("firstRelu", relu, "tilde_x0");
                 int in_ch_Block = in_ch;
+                int inputH = numRows;
+                int inputW = numColumns;
                 String input1 = "x0"; //(3, 1, 32, 32)
                 String input2 = "firstRelu"; // (3, 2, 32, 32)
                 List<IRevBlock> blockList = new ArrayList<>();
@@ -213,27 +215,37 @@ public class MainActivity extends AppCompatActivity
                         if (j == 0) {
                             stride = nStrides[i];
                         }
-                        IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride,
+                        IRevBlock innerIRevBlock = new IRevBlock(graph, batchSize, inputH, inputW,
+                                in_ch_Block, nChannels[i], stride,
                                 mult, input1, input2, String.valueOf(i) + String.valueOf(j));
                         String[] outputs = innerIRevBlock.getOutput();
                         input1 = outputs[0];
                         input2 = outputs[1];
                         blockList.add(innerIRevBlock);
-                        in_ch_Block = 2 * nChannels[i];
+                        in_ch_Block = 2 * nChannels[i];  // input1 channel + input2 channel
+                        inputH = innerIRevBlock.getOutputH();
+                        inputW = innerIRevBlock.getOutputW();
                     }
                 }
 
-                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
+                ProbLayer probLayer = new ProbLayer(batchSize, inputH, inputW, nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
                         WeightInit.XAVIER);
 
-                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                        .nOut(outputNum)
-                        .activation(Activation.SOFTMAX)
-                        .build();
-
+//                graph.addVertex("merge", new MergeVertex(), input1, input2)
+//                        .addLayer("outputProb", probLayer,"merge")
+//                        .setOutputs("outputProb", "merge");
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
-                        .setOutputs("outputProb", "merge");
+                        .setOutputs("outputProb", "merge", "firstRelu",
+                                "217btnk", "216btnk", "215btnk", "214btnk", "213btnk", "212btnk",
+                                "211btnk", "210btnk", "29btnk", "28btnk", "27btnk", "26btnk",
+                                "25btnk", "24btnk", "23btnk", "22btnk", "21btnk", "20btnk",
+                                "117btnk", "116btnk", "115btnk", "114btnk", "113btnk", "112btnk",
+                                "111btnk", "110btnk", "19btnk", "18btnk", "17btnk", "16btnk",
+                                "15btnk", "14btnk", "13btnk", "12btnk", "11btnk", "10btnk",
+                                "017btnk", "016btnk", "015btnk", "014btnk", "013btnk", "012btnk",
+                                "011btnk", "010btnk", "09btnk", "08btnk", "07btnk", "06btnk",
+                                "05btnk", "04btnk", "03btnk", "02btnk", "01btnk", "00btnk");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -253,7 +265,12 @@ public class MainActivity extends AppCompatActivity
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
                             long StartTime = System.nanoTime();
-                            INDArray merge = model.output(false, false, features)[1];
+                            INDArray[] list = model.output(false, false, features);
+                            INDArray merge = list[0];
+                            Log.d("test", String.valueOf(list.length));
+                            for(int k = 0; k < list.length; k++) {
+                                Log.d("btnk", k + String.valueOf(list[k]));
+                            }
                             long EndTime = System.nanoTime();
                             double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("forward time", String.valueOf(elapsedTimeInSecond));
