@@ -13,6 +13,10 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
 
+import org.datavec.image.transform.CropImageTransform;
+import org.datavec.image.transform.FlipImageTransform;
+import org.datavec.image.transform.ImageTransform;
+import org.datavec.image.transform.MultiImageTransform;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
@@ -122,13 +126,6 @@ public class MainActivity extends AppCompatActivity
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            // we will create configuration with 10MB memory space preallocated
-            WorkspaceConfiguration initialConfig = WorkspaceConfiguration.builder()
-                    .initialSize(10 * 1024L * 1024L)
-                    .policyAllocation(AllocationPolicy.STRICT)
-                    .policyLearning(LearningPolicy.NONE)
-                    .build();
-
             try{
                 int[] nChannels = new int[]{16, 64, 256};
                 int[] nBlocks = new int[]{18, 18, 18};
@@ -164,6 +161,8 @@ public class MainActivity extends AppCompatActivity
                 // pixel values from 0-255 to 0-1 (min-max scaling)
                 DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
                 scaler.fit(cifarTrain);
+                //ImageTransform transform = new MultiImageTransform(randNumGen, new CropImageTransform(10), new FlipImageTransform(),new ScaleImageTransform(10), new WarpImageTransform(10));
+
                 cifarTrain.setPreProcessor(scaler);
 
                 // vectorization of test data
@@ -176,7 +175,6 @@ public class MainActivity extends AppCompatActivity
 
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
-                        //.dataType(DataType.HALF)
                         .seed(rngSeed)
                         .activation(Activation.IDENTITY)
                         .updater(new Nesterovs(0.1, 0.9))
@@ -199,13 +197,10 @@ public class MainActivity extends AppCompatActivity
 
                 graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer) //(3, 1, 32, 32)
                         .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer); //(3, 2, 32, 32)
-                ActivationLayer relu = new ActivationLayer.Builder()
-                        .activation(Activation.RELU)
-                        .build();
-                graph.addLayer("firstRelu", relu, "tilde_x0");
                 int in_ch_Block = in_ch;
                 String input1 = "x0"; //(3, 1, 32, 32)
-                String input2 = "firstRelu"; // (3, 2, 32, 32)
+                String input2 = "tilde_x0"; // (3, 2, 32, 32)
+                boolean first = true;
                 List<IRevBlock> blockList = new ArrayList<>();
                 for (int i = 0; i < 3; i++) { // for each stage
                     for (int j = 0; j < nBlocks[i]; j++) { // for each block in the stage
@@ -213,13 +208,14 @@ public class MainActivity extends AppCompatActivity
                         if (j == 0) {
                             stride = nStrides[i];
                         }
-                        IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride,
+                        IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride, first,
                                 mult, input1, input2, String.valueOf(i) + String.valueOf(j));
                         String[] outputs = innerIRevBlock.getOutput();
                         input1 = outputs[0];
                         input2 = outputs[1];
                         blockList.add(innerIRevBlock);
                         in_ch_Block = 2 * nChannels[i];
+                        first = false;
                     }
                 }
 
@@ -233,7 +229,7 @@ public class MainActivity extends AppCompatActivity
 
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
-                        .setOutputs("outputProb", "merge");
+                        .setOutputs("00permute1", "00zeroPadding", "00permute2", "00x2", "00btnk", "01btnk", "02btnk", "x0", "tilde_x0", "outputProb", "merge");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -253,7 +249,8 @@ public class MainActivity extends AppCompatActivity
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
                             long StartTime = System.nanoTime();
-                            INDArray merge = model.output(false, false, features)[1];
+                            INDArray[] os =  model.output(false, false, features);
+                            INDArray merge = os[1];
                             long EndTime = System.nanoTime();
                             double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("forward time", String.valueOf(elapsedTimeInSecond));
