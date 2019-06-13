@@ -266,7 +266,7 @@ public class MainActivity extends AppCompatActivity
                             INDArray features = data.getFeatures();
                             long StartTime = System.nanoTime();
                             INDArray[] list = model.output(false, false, features);
-                            INDArray merge = list[0];
+                            INDArray merge = list[1];
                             Log.d("test", String.valueOf(list.length));
                             for(int k = 0; k < list.length; k++) {
                                 Log.d("btnk", k + String.valueOf(list[k]));

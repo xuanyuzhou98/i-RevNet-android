@@ -90,6 +90,7 @@ public class ProbLayer extends SameDiffLayer {
     public void initializeParameters(Map<String, INDArray> params) {
         initWeights(in_ch, out_ch, weightInit, params.get("denseWeight"));
         initWeights(1, out_ch, WeightInit.ZERO, params.get("denseBias"));
+//        initWeights();
     }
 
 
@@ -97,7 +98,7 @@ public class ProbLayer extends SameDiffLayer {
     public void defineParameters(SDLayerParams params) {
         params.addWeightParam("denseWeight", in_ch, out_ch);
         params.addBiasParam("denseBias", 1, out_ch);
-
+//        params.addWeightParam("bnFinalGamma", in_ch);
     }
 
     @Override
