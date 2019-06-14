@@ -238,6 +238,8 @@ public class MainActivity extends AppCompatActivity
                 mg.togglePeriodicGc(true);
                 model.setListeners(new ScoreIterationListener(1));
 
+                blockList.get(0).bottleneck.testBtnkForward();
+
                 Log.d("Output", "start training");
                 if (manual_gradients) {
                     int i = 0;

@@ -10,6 +10,8 @@ import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
 import org.deeplearning4j.nn.weights.WeightInit;
+import org.nd4j.linalg.factory.Nd4j;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +23,7 @@ public class Bottleneck extends SameDiffLayer {
     private int mult;
     private boolean first;
     private Map<String, SDVariable> paramTable;
+    private Map<String, INDArray> params;
 
     public Bottleneck(int in_ch, int out_ch, int stride,
                       int mult, WeightInit weightInit, boolean first) {
@@ -135,6 +138,7 @@ public class Bottleneck extends SameDiffLayer {
 //        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("var3"));
 //        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("gamma3"));
 //        initWeights(out_ch/mult, out_ch/mult, WeightInit.ZERO, params.get("beta3"));
+        this.params = params;
     }
 
 
@@ -179,6 +183,33 @@ public class Bottleneck extends SameDiffLayer {
         SameDiff sd = SameDiff.create();
         SDVariable layerInput = sd.var("input", x);
         layerInput.isPlaceHolder();
+        defineLayer(sd, layerInput, this.paramTable, null);
+        Map<String, INDArray> placeHolders = new HashMap();
+        placeHolders.put("input", x);
+        INDArray btnkOut = sd.execSingle(placeHolders, "conv3");
+        return btnkOut;
+    }
+
+    public INDArray testBtnkForward() {
+        SameDiff sd = SameDiff.create();
+        INDArray x = Nd4j.zeros(16, in_ch, 32, 32);
+        SDVariable layerInput = sd.var("input", x);
+        layerInput.isPlaceHolder();
+
+        this.paramTable = new HashMap<>();
+        INDArray c1Weight = this.params.get("conv1Weight");
+        SDVariable conv1Weight = sd.var("conv1Weight", c1Weight);
+        conv1Weight.isPlaceHolder();
+        paramTable.put("conv1Weight", conv1Weight);
+        INDArray c2Weight = this.params.get("conv2Weight");
+        SDVariable conv2Weight = sd.var("conv2Weight", c2Weight);
+        conv2Weight.isPlaceHolder();
+        paramTable.put("conv2Weight", conv2Weight);
+        INDArray c3Weight = this.params.get("conv3Weight");
+        SDVariable conv3Weight = sd.var("conv3Weight", c3Weight);
+        conv3Weight.isPlaceHolder();
+        paramTable.put("conv3Weight", conv3Weight);
+
         defineLayer(sd, layerInput, this.paramTable, null);
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
