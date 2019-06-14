@@ -20,8 +20,7 @@ public class IRevBlock {
     private int stride;
     private int pad;
     private String[] output;
-    public Bottleneck bottleneck;
-
+    private Bottleneck bottleneck;
 
     public IRevBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder,
                      int in_ch, int out_ch, int stride, boolean first, int mult, String input1,
@@ -69,18 +68,10 @@ public class IRevBlock {
         INDArray[] x = new INDArray[2];
         INDArray merge = Nd4j.concat(1, input1, input2);
         merge = merge.permute(1, 0, 2, 3);
-        INDArray beforePadding =  merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad)); // exclusive last term
-//            merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad),
-//                    NDArrayIndex.interval(0, merge.shape()[1]), NDArrayIndex.interval(0, merge.shape()[2]),
-//                    NDArrayIndex.interval(0, merge.shape()[3]));
-
-
+        INDArray beforePadding =  merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad));
         long first = beforePadding.shape()[0] / 2;
-        x[0] = beforePadding.get(NDArrayIndex.interval(0, first));
-        x[0] = x[0].permute(1, 0, 2, 3);
-        x[1] = beforePadding.get(NDArrayIndex.interval(first, beforePadding.shape()[0]));
-        x[1] = x[1].permute(1, 0, 2, 3);
-
+        x[0] = beforePadding.get(NDArrayIndex.interval(0, first)).permute(1, 0, 2, 3);
+        x[1] = beforePadding.get(NDArrayIndex.interval(first, beforePadding.shape()[0])).permute(1, 0, 2, 3);
         return x;
     }
 
@@ -89,26 +80,9 @@ public class IRevBlock {
         INDArray x2;
         INDArray[] x = new INDArray[2];
         if (this.stride == 1 && this.pad != 0) {
-            //compute injective padding's inverse
             INDArray btnk = this.bottleneck.forward(y1);
-            INDArray input1 = y2.sub(btnk);
-            INDArray input2 = y1;
-            //x = injInverse(input1, input2);
-            x1 = input1;
-            x2 = input2;
-//            INDArray merge = Nd4j.concat(1, input1, input2);
-//            merge = merge.permute(1, 0, 2, 3);
-//            INDArray beforePadding =  merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad)); // exclusive last term
-////            merge.get(NDArrayIndex.interval(0, merge.shape()[0] - this.pad),
-////                    NDArrayIndex.interval(0, merge.shape()[1]), NDArrayIndex.interval(0, merge.shape()[2]),
-////                    NDArrayIndex.interval(0, merge.shape()[3]));
-//
-//
-//            long first = beforePadding.shape()[0] / 2;
-//            x1 = beforePadding.get(NDArrayIndex.interval(0, first));
-//            x2 = beforePadding.get(NDArrayIndex.interval(first, beforePadding.shape()[0]));
-//            //beforePadding = beforePadding.permute(1, 0, 2, 3);
-
+            x1 = y2.sub(btnk);
+            x2 = y1;
         }
         else if (this.stride == 1 && this.pad == 0) {
             x2 = y1;
@@ -116,71 +90,49 @@ public class IRevBlock {
             x1 = y2.sub(btnk);
         }
         else {
-            //call PSI inverse
             x2 = PsiLayerImpl.inverse(y1, this.stride);
             INDArray btnk = this.bottleneck.forward(x2);
             INDArray px1 = y2.sub(btnk);
             x1 = PsiLayerImpl.inverse(px1, this.stride);
         }
-
-        // (this.stride == 2)
-
         x[0] = x1;
         x[1] = x2;
-
         return x;
     }
 
-    // This function computes the total gradient of the graph without referring to the stored activation
-    protected List<INDArray> gradient(INDArray x1, INDArray dy1, INDArray dy2) {
+    protected List<INDArray> gradient(INDArray x2, INDArray dy1, INDArray dy2) {
         INDArray dx1 = null;
         INDArray dx2 = null;
         INDArray dc1 = null;
         INDArray dc2 = null;
         INDArray dc3 = null;
-
-        // TODO: downsample when switching btwn stages? Seems like we could ignore this since iRevNets
-        // calculate the gradient w.r.t x1, x2 and list of weights
-        // dz1 = S-1(dy1) + (dF_dz1).T.dot(dy2)
-        // dx2 = S-1(dy2)
-        // dx1 = dz1s
+        INDArray[] ds = null;
         if (this.stride == 1 && this.pad != 0) {
-            INDArray z1 = x1;
-            INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3
-            INDArray dy2_x2 = ds[0];
-            dc1 = ds[1];
-            dc2 = ds[2];
-            dc3 = ds[3];
-            INDArray dy2_x1 = dy1;
-            INDArray inverse_dx2 = dy2_x2.add(dy2_x1);
-            INDArray inverse_dx1 = dy2;
-            INDArray[] dx = injInverse(inverse_dx1, inverse_dx2);
+            INDArray dy1_injx2 = dy1;
+            ds = this.bottleneck.gradient(x2, dy2);
+            INDArray dy2_injx2 = ds[0];
+            INDArray dinjx1 = dy2;
+            INDArray dinjx2 = dy1_injx2.add(dy2_injx2);
+            INDArray[] dx = injInverse(dinjx1, dinjx2);
             dx1 = dx[0];
             dx2 = dx[1];
         } else if (this.stride == 1 && this.pad == 0) {
-            INDArray z1 = x1;
-            INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3
-            INDArray dy2_x2 = ds[0];
-            dc1 = ds[1];
-            dc2 = ds[2];
-            dc3 = ds[3];
-            INDArray dy2_x1 = dy1;
-            dx2 = dy2_x2.add(dy2_x1);
             dx1 = dy2;
-        } else if (this.stride == 2) {
-            INDArray z1 = x1;
-            INDArray[] ds = this.bottleneck.gradient(z1, dy2); //dy2_x2, dc1, dc2, dx3
+            INDArray dy1_x2 = dy1;
+            ds = this.bottleneck.gradient(x2, dy2);
             INDArray dy2_x2 = ds[0];
-            dc1 = ds[1];
-            dc2 = ds[2];
-            dc3 = ds[3];
-            INDArray dy2_x1 = PsiLayerImpl.inverse(dy1, this.stride);
-            dx2 = dy2_x2.add(dy2_x1);
+            dx2 = dy2_x2.add(dy1_x2);
+        } else if (this.stride == 2) {
             dx1 = PsiLayerImpl.inverse(dy2, this.stride);
+            INDArray dy1_x2 = PsiLayerImpl.inverse(dy1, this.stride);
+            ds = this.bottleneck.gradient(x2, dy2);
+            INDArray dy2_x2 = ds[0];
+            dx2 = dy1_x2.add(dy2_x2);
         }
-
-        // return (dx1, dx2, dc1, dc2, dc3)
-        List<INDArray> gradients = new ArrayList<INDArray>();
+        dc1 = ds[1];
+        dc2 = ds[2];
+        dc3 = ds[3];
+        List<INDArray> gradients = new ArrayList<>();
         gradients.add(dx1);
         gradients.add(dx2);
         gradients.add(dc1);

@@ -17,6 +17,7 @@ import org.datavec.image.transform.CropImageTransform;
 import org.datavec.image.transform.FlipImageTransform;
 import org.datavec.image.transform.ImageTransform;
 import org.datavec.image.transform.MultiImageTransform;
+import org.datavec.image.transform.RandomCropTransform;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
@@ -28,6 +29,8 @@ import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
+import org.nd4j.linalg.dataset.api.preprocessor.NormalizerMinMaxScaler;
+import org.nd4j.linalg.dataset.api.preprocessor.StandardizeStrategy;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.datavec.image.loader.NativeImageLoader;
 import org.datavec.image.recordreader.ImageRecordReader;
@@ -46,6 +49,7 @@ import org.deeplearning4j.nn.conf.*;
 import org.deeplearning4j.nn.conf.layers.*;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.learning.config.Nesterovs;
+
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
 import org.nd4j.linalg.memory.MemoryManager;
@@ -161,8 +165,9 @@ public class MainActivity extends AppCompatActivity
                 // pixel values from 0-255 to 0-1 (min-max scaling)
                 DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
                 scaler.fit(cifarTrain);
-                //ImageTransform transform = new MultiImageTransform(randNumGen, new CropImageTransform(10), new FlipImageTransform(),new ScaleImageTransform(10), new WarpImageTransform(10));
-
+//                ImageTransform transform = new MultiImageTransform(
+//                        new CropImageTransform(10),
+//                        new FlipImageTransform(1));
                 cifarTrain.setPreProcessor(scaler);
 
                 // vectorization of test data
@@ -229,7 +234,7 @@ public class MainActivity extends AppCompatActivity
 
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
-                        .setOutputs("00permute1", "00zeroPadding", "00permute2", "00x2", "00btnk", "01btnk", "02btnk", "x0", "tilde_x0", "outputProb", "merge");
+                        .setOutputs("outputProb", "merge");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -237,8 +242,6 @@ public class MainActivity extends AppCompatActivity
                 MemoryManager mg = Nd4j.getMemoryManager();
                 mg.togglePeriodicGc(true);
                 model.setListeners(new ScoreIterationListener(1));
-
-                blockList.get(0).bottleneck.testBtnkForward();
 
                 Log.d("Output", "start training");
                 if (manual_gradients) {
@@ -293,68 +296,33 @@ public class MainActivity extends AppCompatActivity
 
 
         // This function computes the total gradient of the graph without referring to the stored activation
-        protected HashMap<String, INDArray> computeGradient(ComputationGraph model, INDArray y2, INDArray y1, int[] nBlocks,
+        protected HashMap<String, INDArray> computeGradient(ComputationGraph model, INDArray y1, INDArray y2, int[] nBlocks,
                                                             List<IRevBlock> blockList, INDArray[] lossGradient) {
 
             HashMap<String, INDArray> gradsResult = new HashMap<>();
-            // get dy1 and dy2
             INDArray dy1 = lossGradient[0];
             INDArray dy2 = lossGradient[1];
-
             int cnt = blockList.size() - 1;
             // from the last layer to the first layer
             for (int i = nBlocks.length - 1; i >= 0; i -= 1) { // for each stage
                 for (int j = nBlocks[i] - 1; j >= 0; j -= 1) { // for each iRevBlock
                     IRevBlock iRev = blockList.get(cnt);
-                    // get x1 and x2
                     INDArray[] x = iRev.inverse(y1, y2);
                     INDArray x1 = x[0];
                     INDArray x2 = x[1];
-                    // update (and swap) y1 and y2
                     y1 = x1;
                     y2 = x2;
-                    // get gradients
-                    List<INDArray> gradients = iRev.gradient(x1, dy1, dy2);
-                    // update dy1 and dy2 (already swapped)
+                    List<INDArray> gradients = iRev.gradient(x2, dy1, dy2);
                     String prefix = iRev.getPrefix();
                     dy1 = gradients.get(0);
                     dy2 = gradients.get(1);
-
-                    // save graidents
                     gradsResult.put(prefix + "btnk_conv1Weight", gradients.get(2));
                     gradsResult.put(prefix + "btnk_conv2Weight", gradients.get(3));
                     gradsResult.put(prefix + "btnk_conv3Weight", gradients.get(4));
                     cnt -= 1;
                 }
             }
-
             return gradsResult;
-        }
-
-        private long getFlopCountConv(int channels, int filter_size, int num_filters,
-                                      int outShapeH, int outShapeW) {
-            return (2 * channels * filter_size * filter_size - 1) * num_filters * outShapeH * outShapeW;
-        }
-
-        private long getFlopCountFC(int inputSize, int outputSize) {
-            return (2 * inputSize - 1) * outputSize;
-        }
-
-        private long getFlopCountConvBackward(int channels, int filter_size, int num_filters,
-                                              int outShapeH, int outShapeW) {
-            int out = outShapeH * outShapeW;
-            int db = out;
-            int dw = num_filters * ((2 * out - 1) * channels * filter_size * filter_size);
-            int dx_cols = channels * filter_size * filter_size * (2 * num_filters - 1) * out;
-            int dx = channels * filter_size * filter_size * out;
-            return db + dw + dx_cols + dx;
-        }
-
-        private long getFlopCountFCBackward(int inputSize, int outputSize) {
-            int db = outputSize;
-            int dx = (2 * outputSize - 1) * inputSize;
-            int dw = inputSize * outputSize;
-            return db + dx + dw;
         }
     }
 }

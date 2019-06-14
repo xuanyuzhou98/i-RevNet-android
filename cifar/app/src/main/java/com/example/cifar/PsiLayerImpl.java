@@ -26,17 +26,17 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
 
     @Override
     public INDArray activate(boolean training, LayerWorkspaceMgr workspaceMgr) {
-        assertInputSet(false); //input (3, 16, 32, 3)
+        assertInputSet(false);
         long blockSizeSq = this.blockSize * this.blockSize;
         input = input.permute(0, 2, 3, 1);
         long[] shape = input.shape();
-        long batchSize = shape[0]; // 3
-        long sHeight = shape[1]; // 16
-        long sWidth = shape[2]; // 32
-        long sDepth = shape[3];  // 3
-        long dDepth = sDepth * blockSizeSq; // new depth 14
-        long dHeight = sHeight / this.blockSize; // new height 8
-        int numOfSplits = (int)sWidth / this.blockSize; // 16
+        long batchSize = shape[0];
+        long sHeight = shape[1];
+        long sWidth = shape[2];
+        long sDepth = shape[3];
+        long dDepth = sDepth * blockSizeSq;
+        long dHeight = sHeight / this.blockSize;
+        int numOfSplits = (int)sWidth / this.blockSize;
         INDArray[] t_1 = Utils.split(input, numOfSplits, 2);
         INDArray[] stack = new INDArray[numOfSplits];
         for (int i = 0; i < numOfSplits; i += 1) {
@@ -48,7 +48,7 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
         output = output.permute(0, 3, 1, 2);
         long[] outShape = output.shape();
         INDArray out = workspaceMgr.create(ArrayType.ACTIVATIONS, this.dataType, outShape);
-        out.assign(output); // (3, 8, 16, 12)
+        out.assign(output);
         return out;
     }
 
@@ -62,25 +62,16 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
     @Override
     public Pair<Gradient, INDArray> backpropGradient(INDArray epsilon, LayerWorkspaceMgr workspaceMgr) {
         assertInputSet(true);
-
-        //long[] origShape = epsilon.shape();
-        //Don't collapse dims case: error should be [minibatch, vectorSize, 1] or [minibatch, channels, 1, 1]
-        //Reshape it to 2d, to get rid of the 1s
-
-        //epsilon = epsilon.reshape(epsilon.ordering(), origShape[0], origShape[1], );
         INDArray epsilonNd;
         epsilonNd = inverse(epsilon, this.blockSize);
         Gradient retGradient = new DefaultGradient(); //Empty: no params
         epsilonNd = workspaceMgr.leverageTo(ArrayType.ACTIVATION_GRAD, epsilonNd);
         return new Pair<>(retGradient, epsilonNd);
-
     }
 
     public static INDArray inverse(INDArray in, int blockSize) {
-        //in: [1, 7, 7, 24]
-        //in:[1, 24, 7, 7]
-        long blockSizeSq = blockSize * blockSize; //4
-        INDArray out = in.permute(0, 2, 3, 1); // [1, 7, 7, 24]
+        long blockSizeSq = blockSize * blockSize;
+        INDArray out = in.permute(0, 2, 3, 1);
         long[] shape = out.shape();
         long batchSize = shape[0];
         long dHeight = shape[1];
@@ -90,7 +81,7 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
         long sWidth = dWidth * blockSize;
         long sHeight = dHeight * blockSize;
         INDArray t_1 = out.reshape(batchSize, dHeight, dWidth, blockSizeSq, sDepth);
-        int numOfSplits = (int)(blockSizeSq / blockSize); //
+        int numOfSplits = (int)(blockSizeSq / blockSize);
         INDArray[] spl = Utils.split(t_1, numOfSplits, 3);
         INDArray[] stack = new INDArray[numOfSplits];
         for(int i = 0; i < numOfSplits; i++) {
@@ -99,7 +90,7 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
         }
         INDArray output = Nd4j.stack(0, stack);
         output = output.transpose();
-        output = output.permute(0, 2, 1, 3, 4).reshape(batchSize, sHeight, sWidth, sDepth); // transpose need to double check.
+        output = output.permute(0, 2, 1, 3, 4).reshape(batchSize, sHeight, sWidth, sDepth);
         output = output.permute(0, 3, 1, 2);
         return output;
     }

@@ -66,9 +66,9 @@ public class Bottleneck extends SameDiffLayer {
 //        SDVariable var3 = paramTable.get("var3");
 //        SDVariable gamma3 = paramTable.get("gamma3");
 //        SDVariable beta3 = paramTable.get("beta3");
-//        sd.var(conv1Weight);
-//        sd.var(conv2Weight);
-//        sd.var(conv3Weight);
+        sd.var(conv1Weight);
+        sd.var(conv2Weight);
+        sd.var(conv3Weight);
 //        sd.var(mean1);
 //        sd.var(var1);
 //        sd.var(gamma1);
@@ -197,32 +197,6 @@ public class Bottleneck extends SameDiffLayer {
         return btnkOut;
     }
 
-    public INDArray testBtnkForward() {
-        SameDiff sd = SameDiff.create();
-        INDArray x = Nd4j.ones(1, in_ch, 32, 32);
-        SDVariable layerInput = sd.var("input", x);
-        layerInput.isPlaceHolder();
-
-        this.paramTable = new HashMap<>();
-        INDArray c1Weight = this.params.get("conv1Weight");
-        SDVariable conv1Weight = sd.var("conv1Weight", c1Weight);
-        conv1Weight.isPlaceHolder();
-        paramTable.put("conv1Weight", conv1Weight);
-        INDArray c2Weight = this.params.get("conv2Weight");
-        SDVariable conv2Weight = sd.var("conv2Weight", c2Weight);
-        conv2Weight.isPlaceHolder();
-        paramTable.put("conv2Weight", conv2Weight);
-        INDArray c3Weight = this.params.get("conv3Weight");
-        SDVariable conv3Weight = sd.var("conv3Weight", c3Weight);
-        conv3Weight.isPlaceHolder();
-        paramTable.put("conv3Weight", conv3Weight);
-
-        defineLayer(sd, layerInput, this.paramTable, null);
-        Map<String, INDArray> placeHolders = new HashMap();
-        placeHolders.put("input", x);
-        INDArray btnkOut = sd.execSingle(placeHolders, "conv3");
-        return btnkOut;
-    }
 
     /**
      * Gradients without referring to the stored activation.
