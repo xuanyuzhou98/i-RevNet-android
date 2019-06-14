@@ -21,6 +21,7 @@ public class Bottleneck extends SameDiffLayer {
     private int in_ch;
     private int out_ch;
     private int mult;
+    private int filterSize = 3;
     private boolean first;
     private Map<String, SDVariable> paramTable;
     private Map<String, INDArray> params;
@@ -49,7 +50,7 @@ public class Bottleneck extends SameDiffLayer {
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
-        int convStride = 3;
+
         SDVariable conv1Weight = paramTable.get("conv1Weight");
         SDVariable conv2Weight = paramTable.get("conv2Weight");
         SDVariable conv3Weight = paramTable.get("conv3Weight");
@@ -84,7 +85,7 @@ public class Bottleneck extends SameDiffLayer {
             layerInput = sd.nn().relu("act0", layerInput, 0.);
         }
         Conv2DConfig c1 = Conv2DConfig.builder()
-                .kH(1).kW(1)
+                .kH(this.filterSize).kW(this.filterSize)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
@@ -94,7 +95,7 @@ public class Bottleneck extends SameDiffLayer {
 //        SDVariable bn1 = sd.nn().batchNorm("bn1", conv1, mean1, var1, gamma1, beta1, 1e-5, 1);
         SDVariable act1 = sd.nn().relu("act1", conv1, 0.);
         Conv2DConfig c2 = Conv2DConfig.builder()
-                .kH(1).kW(1)
+                .kH(this.filterSize).kW(this.filterSize)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
@@ -104,7 +105,7 @@ public class Bottleneck extends SameDiffLayer {
 //        SDVariable bn2 = sd.nn().batchNorm("bn2", conv2, mean2, var2, gamma2, beta2, 1e-5, 1);
         SDVariable act2 = sd.nn().relu("act2", conv2, 0.);
         Conv2DConfig c3 = Conv2DConfig.builder()
-                .kH(1).kW(1)
+                .kH(this.filterSize).kW(this.filterSize)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
@@ -123,9 +124,15 @@ public class Bottleneck extends SameDiffLayer {
      */
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
-        initWeights(in_ch/2, out_ch/mult, WeightInit.ONES, params.get("conv1Weight"));
-        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("conv2Weight"));
-        initWeights(out_ch/mult, out_ch, WeightInit.ONES, params.get("conv3Weight"));
+        int fanIn1 = in_ch * filterSize * filterSize;    // fan-in = num input feature maps * filter height * filter width
+        int fanOut1 = (out_ch / mult) * filterSize * filterSize;
+        initWeights(fanIn1, fanOut1, WeightInit.XAVIER_UNIFORM, params.get("conv1Weight"));
+        int fanIn2 = (out_ch/mult) * filterSize * filterSize;
+        int fanOut2 = (out_ch/mult) * filterSize * filterSize;
+        initWeights(fanIn2, fanOut2, WeightInit.XAVIER_UNIFORM, params.get("conv2Weight"));
+        int fanIn3 = (out_ch/mult) * filterSize * filterSize;
+        int fanOut3 = out_ch * filterSize * filterSize;
+        initWeights(fanIn3, fanOut3, WeightInit.XAVIER_UNIFORM, params.get("conv3Weight"));
 //        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("mean1"));
 //        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("var1"));
 //        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("gamma1"));
@@ -144,9 +151,9 @@ public class Bottleneck extends SameDiffLayer {
 
     @Override
     public void defineParameters(SDLayerParams params) {
-        params.addWeightParam("conv1Weight", 1, 1, in_ch, out_ch/mult);
-        params.addWeightParam("conv2Weight", 1, 1, out_ch/mult, out_ch/mult);
-        params.addWeightParam("conv3Weight", 1, 1, out_ch/mult, out_ch);
+        params.addWeightParam("conv1Weight", filterSize, filterSize, in_ch, out_ch/mult);
+        params.addWeightParam("conv2Weight", filterSize, filterSize, out_ch/mult, out_ch/mult);
+        params.addWeightParam("conv3Weight", filterSize, filterSize, out_ch/mult, out_ch);
 //        params.addWeightParam("mean1", out_ch/mult);
 //        params.addWeightParam("var1", out_ch/mult);
 //        params.addWeightParam("gamma1", out_ch/mult);
