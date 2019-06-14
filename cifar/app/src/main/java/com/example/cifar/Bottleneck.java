@@ -84,7 +84,7 @@ public class Bottleneck extends SameDiffLayer {
             layerInput = sd.nn().relu("act0", layerInput, 0.);
         }
         Conv2DConfig c1 = Conv2DConfig.builder()
-                .kH(convStride).kW(convStride)
+                .kH(1).kW(1)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
@@ -94,7 +94,7 @@ public class Bottleneck extends SameDiffLayer {
 //        SDVariable bn1 = sd.nn().batchNorm("bn1", conv1, mean1, var1, gamma1, beta1, 1e-5, 1);
         SDVariable act1 = sd.nn().relu("act1", conv1, 0.);
         Conv2DConfig c2 = Conv2DConfig.builder()
-                .kH(convStride).kW(convStride)
+                .kH(1).kW(1)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
@@ -104,7 +104,7 @@ public class Bottleneck extends SameDiffLayer {
 //        SDVariable bn2 = sd.nn().batchNorm("bn2", conv2, mean2, var2, gamma2, beta2, 1e-5, 1);
         SDVariable act2 = sd.nn().relu("act2", conv2, 0.);
         Conv2DConfig c3 = Conv2DConfig.builder()
-                .kH(convStride).kW(convStride)
+                .kH(1).kW(1)
                 .pH(1).pW(1)
                 .dH(1).dW(1)
                 .isSameMode(false)
@@ -123,9 +123,9 @@ public class Bottleneck extends SameDiffLayer {
      */
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
-        initWeights(in_ch/2, out_ch/mult, weightInit, params.get("conv1Weight"));
-        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("conv2Weight"));
-        initWeights(out_ch/mult, out_ch, weightInit, params.get("conv3Weight"));
+        initWeights(in_ch/2, out_ch/mult, WeightInit.ONES, params.get("conv1Weight"));
+        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("conv2Weight"));
+        initWeights(out_ch/mult, out_ch, WeightInit.ONES, params.get("conv3Weight"));
 //        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("mean1"));
 //        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("var1"));
 //        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("gamma1"));
@@ -144,9 +144,9 @@ public class Bottleneck extends SameDiffLayer {
 
     @Override
     public void defineParameters(SDLayerParams params) {
-        params.addWeightParam("conv1Weight", 3, 3, in_ch, out_ch/mult);
-        params.addWeightParam("conv2Weight", 3, 3, out_ch/mult, out_ch/mult);
-        params.addWeightParam("conv3Weight", 3, 3, out_ch/mult, out_ch);
+        params.addWeightParam("conv1Weight", 1, 1, in_ch, out_ch/mult);
+        params.addWeightParam("conv2Weight", 1, 1, out_ch/mult, out_ch/mult);
+        params.addWeightParam("conv3Weight", 1, 1, out_ch/mult, out_ch);
 //        params.addWeightParam("mean1", out_ch/mult);
 //        params.addWeightParam("var1", out_ch/mult);
 //        params.addWeightParam("gamma1", out_ch/mult);
@@ -192,7 +192,7 @@ public class Bottleneck extends SameDiffLayer {
 
     public INDArray testBtnkForward() {
         SameDiff sd = SameDiff.create();
-        INDArray x = Nd4j.zeros(16, in_ch, 32, 32);
+        INDArray x = Nd4j.ones(1, in_ch, 32, 32);
         SDVariable layerInput = sd.var("input", x);
         layerInput.isPlaceHolder();
 
