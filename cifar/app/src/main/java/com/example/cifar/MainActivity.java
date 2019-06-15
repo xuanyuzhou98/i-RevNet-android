@@ -368,28 +368,20 @@ public class MainActivity extends AppCompatActivity
 
                 graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer) //(3, 1, 32, 32)
                         .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer); //(3, 2, 32, 32)
-                int in_ch_Block = in_ch;
                 String input1 = "x0"; //(3, 1, 32, 32)
                 String input2 = "tilde_x0"; // (3, 2, 32, 32)
                 boolean first = true;
                 List<IRevBlock> blockList = new ArrayList<>();
 
-                IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, 16, 1, first,
+                IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch, nChannels[0], nStrides[0], first,
                         mult, input1, input2, "00");
                 String[] outputs = innerIRevBlock.getOutput();
                 input1 = outputs[0];
                 input2 = outputs[1];
                 blockList.add(innerIRevBlock);
-                in_ch_Block = 2 * 16;
 
-
-                ProbLayer probLayer = new ProbLayer(in_ch_Block, outputNum, 8, 8,
+                ProbLayer probLayer = new ProbLayer(nChannels[0]*2, outputNum, 32, 32,
                         WeightInit.XAVIER);
-
-                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                        .nOut(outputNum)
-                        .activation(Activation.SOFTMAX)
-                        .build();
 
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
