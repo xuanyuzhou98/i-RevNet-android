@@ -8,6 +8,7 @@ import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Pair;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
@@ -130,175 +131,184 @@ public class MainActivity extends AppCompatActivity
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            UnitTestIrevBlockInverse();
-//            try{
-//                int[] nChannels = new int[]{16, 64, 256};
-//                int[] nBlocks = new int[]{18, 18, 18};
-//                int[] nStrides = new int[]{1, 2, 2};
-//                int channels = 3;
-//                int init_ds = 0;
-//                int in_ch = channels * (int) Math.pow(2, init_ds);
-//                int n = in_ch / 2;
-//                int outputNum = 10; // number of output classes
-//                final int numRows = 32;
-//                final int numColumns = 32;
-//                int rngSeed = 1234; // random number seed for reproducibility
-//                int numEpochs = 1; // number of epochs to perform
-//                Random randNumGen = new Random(rngSeed);
-//                int batchSize = 16; // batch size for each epoch
-//                int mult = 4;
-//
-//                if (!new File(basePath + "/cifar").exists()) {
-//                    Log.d("Data download", "Data downloaded from " + dataUrl);
-//                    String localFilePath = basePath + "/cifar.tgz";
-//                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
-//                        DataUtilities.extractTarGz(localFilePath, basePath);
-//                    }
-//                }
-//
-//                // vectorization of train data
-//                File trainData = new File(basePath + "/cifar/train");
-//                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-//                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
-//                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-//                trainRR.initialize(trainSplit);
-//                DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
-//                // pixel values from 0-255 to 0-1 (min-max scaling)
-//                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-//                scaler.fit(cifarTrain);
-////                ImageTransform transform = new MultiImageTransform(
-////                        new CropImageTransform(10),
-////                        new FlipImageTransform(1));
-//                cifarTrain.setPreProcessor(scaler);
-//
-//                // vectorization of test data
-//                File testData = new File(basePath + "/cifar/test");
-//                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-//                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-//                testRR.initialize(testSplit);
-//                DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
-//                cifarTest.setPreProcessor(scaler); // same normalization for better results
-//
-//
-//                NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
-//                        .seed(rngSeed)
-//                        .activation(Activation.IDENTITY)
-//                        .updater(new Nesterovs(0.1, 0.9))
-//                        .weightInit(WeightInit.XAVIER)
-//                        .l1(1e-7)
-//                        .l2(5e-5);
-//                if (half_precision) {
-//                    config.dataType(DataType.HALF);
-//                }
-//                ComputationGraphConfiguration.GraphBuilder graph = config.graphBuilder();
-//
-//                graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels)); //(3, 3, 32, 32)
-//                String lastLayer = "input";
-//                if (init_ds != 0) {
-//                    graph.addLayer("init_psi", new PsiLayer.Builder()
-//                            .BlockSize(init_ds)
-//                            .build(), "input");
-//                    lastLayer = "init_psi";
-//                }
-//
-//                graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer) //(3, 1, 32, 32)
-//                        .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer); //(3, 2, 32, 32)
-//                int in_ch_Block = in_ch;
-//                String input1 = "x0"; //(3, 1, 32, 32)
-//                String input2 = "tilde_x0"; // (3, 2, 32, 32)
-//                boolean first = true;
-//                List<IRevBlock> blockList = new ArrayList<>();
-//                for (int i = 0; i < 3; i++) { // for each stage
-//                    for (int j = 0; j < nBlocks[i]; j++) { // for each block in the stage
-//                        int stride = 1;
-//                        if (j == 0) {
-//                            stride = nStrides[i];
-//                        }
-//                        IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride, first,
-//                                mult, input1, input2, String.valueOf(i) + String.valueOf(j));
-//                        String[] outputs = innerIRevBlock.getOutput();
-//                        input1 = outputs[0];
-//                        input2 = outputs[1];
-//                        blockList.add(innerIRevBlock);
-//                        in_ch_Block = 2 * nChannels[i];
-//                        first = false;
-//                    }
-//                }
-//
-//                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
-//                        WeightInit.XAVIER);
-//
-//                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-//                        .nOut(outputNum)
-//                        .activation(Activation.SOFTMAX)
-//                        .build();
-//
-//                graph.addVertex("merge", new MergeVertex(), input1, input2)
-//                        .addLayer("outputProb", probLayer,"merge")
-//                        .setOutputs("outputProb", "merge");
-//
-//                ComputationGraphConfiguration conf = graph.build();
-//                ComputationGraph model = new ComputationGraph(conf);
-//                model.init();
-//                MemoryManager mg = Nd4j.getMemoryManager();
-//                mg.togglePeriodicGc(true);
-//                model.setListeners(new ScoreIterationListener(1));
-//
-//                Log.d("Output", "start training");
-//                if (manual_gradients) {
-//                    int i = 0;
-//                    for (int epoch = 0; epoch <= numEpochs; epoch++) {
-//                        Log.d("Epoch", "Running epoch " + epoch);
-//                        while (cifarTrain.hasNext()) {
-//                            Log.d("Iteration", "Running iter " + i);
-//                            DataSet data = cifarTrain.next();
-//                            INDArray label = data.getLabels();
-//                            INDArray features = data.getFeatures();
-//                            long StartTime = System.nanoTime();
-//                            INDArray[] os =  model.output(false, false, features);
-//                            INDArray merge = os[1];
-//                            long EndTime = System.nanoTime();
-//                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-//                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-//                            Log.d("output", "finished forward iter " + i);
-//
-//                            StartTime = System.nanoTime();
-//                            Gradient gradient = new DefaultGradient();
-//                            INDArray[] outputGradients = probLayer.gradient(merge, label);
-//                            INDArray dwGradient = outputGradients[1];
-//                            INDArray dbGradient = outputGradients[2];
-//                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-//                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
-//                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-//                            INDArray[] hiddens = Utils.splitHalf(merge);
-//                            HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-//                                    nBlocks, blockList, lossGradient);
-//                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-//                                gradient.setGradientFor(entry.getKey(), entry.getValue());
-//                            }
-//                            model.getUpdater().update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
-//                            EndTime = System.nanoTime();
-//                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-//                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-//                            Log.d("output", "finished backward iter " + i);
-//                            i++;
-//                        }
-//                    }
-//                } else {
-//                    for(int l=0; l <= numEpochs; l++) {
-//                        model.fit(cifarTrain);
-//                    }
-//                }
-//            } catch (Exception ex) {
-//                ex.printStackTrace();
-//            }
+            try{
+                int[] nChannels = new int[]{16, 64, 256};
+                int[] nBlocks = new int[]{18, 18, 18};
+                int[] nStrides = new int[]{1, 2, 2};
+                int channels = 3;
+                int init_ds = 0;
+                int in_ch = channels * (int) Math.pow(2, init_ds);
+                int n = in_ch / 2;
+                int outputNum = 10; // number of output classes
+                final int numRows = 32;
+                final int numColumns = 32;
+                int rngSeed = 1234; // random number seed for reproducibility
+                int numEpochs = 1; // number of epochs to perform
+                Random randNumGen = new Random(rngSeed);
+                int batchSize = 16; // batch size for each epoch
+                int mult = 4;
+
+                if (!new File(basePath + "/cifar").exists()) {
+                    Log.d("Data download", "Data downloaded from " + dataUrl);
+                    String localFilePath = basePath + "/cifar.tgz";
+                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
+                        DataUtilities.extractTarGz(localFilePath, basePath);
+                    }
+                }
+
+                // vectorization of train data
+                File trainData = new File(basePath + "/cifar/train");
+                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
+                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                trainRR.initialize(trainSplit);
+                DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
+                // pixel values from 0-255 to 0-1 (min-max scaling)
+                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+                scaler.fit(cifarTrain);
+//                ImageTransform transform = new MultiImageTransform(
+//                        new CropImageTransform(10),
+//                        new FlipImageTransform(1));
+                cifarTrain.setPreProcessor(scaler);
+
+                // vectorization of test data
+                File testData = new File(basePath + "/cifar/test");
+                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                testRR.initialize(testSplit);
+                DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
+                cifarTest.setPreProcessor(scaler); // same normalization for better results
+
+
+                NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
+                        .seed(rngSeed)
+                        .activation(Activation.IDENTITY)
+                        .updater(new Nesterovs(0.1, 0.9))
+                        .weightInit(WeightInit.XAVIER)
+                        .l1(1e-7)
+                        .l2(5e-5);
+                if (half_precision) {
+                    config.dataType(DataType.HALF);
+                }
+                ComputationGraphConfiguration.GraphBuilder graph = config.graphBuilder();
+
+                graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels)); //(3, 3, 32, 32)
+                String lastLayer = "input";
+                if (init_ds != 0) {
+                    graph.addLayer("init_psi", new PsiLayer.Builder()
+                            .BlockSize(init_ds)
+                            .build(), "input");
+                    lastLayer = "init_psi";
+                }
+
+                graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer) //(3, 1, 32, 32)
+                        .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer); //(3, 2, 32, 32)
+                int in_ch_Block = in_ch;
+                List<Pair<String, String>> inputNames = new ArrayList<>();
+                String input1 = "x0"; //(3, 1, 32, 32)
+                String input2 = "tilde_x0"; // (3, 2, 32, 32)
+                inputNames.add(new Pair<>(input1, input2));
+                boolean first = true;
+
+                List<IRevBlock> blockList = new ArrayList<>();
+                for (int i = 0; i < 3; i++) { // for each stage
+                    for (int j = 0; j < nBlocks[i]; j++) { // for each block in the stage
+                        int stride = 1;
+                        if (j == 0) {
+                            stride = nStrides[i];
+                        }
+                        IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride, first,
+                                mult, input1, input2, String.valueOf(i) + String.valueOf(j));
+                        String[] outputs = innerIRevBlock.getOutput();
+                        input1 = outputs[0];
+                        input2 = outputs[1];
+                        inputNames.add(new Pair<>(input1, input2));
+                        blockList.add(innerIRevBlock);
+                        in_ch_Block = 2 * nChannels[i];
+                        first = false;
+                    }
+                }
+
+                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
+                        WeightInit.XAVIER);
+
+                graph.addVertex("merge", new MergeVertex(), input1, input2)
+                        .addLayer("outputProb", probLayer,"merge")
+                        .setOutputs("outputProb", "merge",
+                                "x0", "tilde_x0",
+                                blockList.get(0).getOutput()[0], blockList.get(0).getOutput()[1],
+                                blockList.get(0).getOutput()[1], blockList.get(1).getOutput()[1],
+                                blockList.get(nBlocks[1] - 1).getOutput()[0], blockList.get(nBlocks[1] - 1).getOutput()[1],
+                                blockList.get(nBlocks[1]).getOutput()[0], blockList.get(nBlocks[1]).getOutput()[1]
+                                );
+
+                ComputationGraphConfiguration conf = graph.build();
+                ComputationGraph model = new ComputationGraph(conf);
+                model.init();
+                MemoryManager mg = Nd4j.getMemoryManager();
+                mg.togglePeriodicGc(true);
+                model.setListeners(new ScoreIterationListener(1));
+
+                Log.d("Output", "start training");
+                if (manual_gradients) {
+                    int i = 0;
+                    for (int epoch = 0; epoch <= numEpochs; epoch++) {
+                        Log.d("Epoch", "Running epoch " + epoch);
+                        while (cifarTrain.hasNext()) {
+                            Log.d("Iteration", "Running iter " + i);
+                            DataSet data = cifarTrain.next();
+                            INDArray label = data.getLabels();
+                            INDArray features = data.getFeatures();
+                            long StartTime = System.nanoTime();
+                            INDArray[] os =  model.output(false, false, features);
+                            INDArray merge = os[1];
+                            long EndTime = System.nanoTime();
+                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
+                            Log.d("output", "finished forward iter " + i);
+
+                            StartTime = System.nanoTime();
+                            Gradient gradient = new DefaultGradient();
+                            INDArray[] outputGradients = probLayer.gradient(merge, label);
+                            INDArray dwGradient = outputGradients[1];
+                            INDArray dbGradient = outputGradients[2];
+                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                            INDArray[] hiddens = Utils.splitHalf(merge);
+
+//                            blockList.get(0).testInverse(os[2], os[3], os[4], os[5]);
+                            blockList.get(1).testInverse(os[4], os[5], os[5], os[7]);
+                            blockList.get(nBlocks[1]).testInverse(os[8], os[9], os[10], os[11]);
+
+                            HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+                                    nBlocks, blockList, lossGradient);
+                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            }
+                            model.getUpdater().update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                            EndTime = System.nanoTime();
+                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+                            Log.d("output", "finished backward iter " + i);
+                            i++;
+                        }
+                    }
+                } else {
+                    for(int l=0; l <= numEpochs; l++) {
+                        model.fit(cifarTrain);
+                    }
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
             return "";
         }
 
         private void UnitTestIrevBlockInverse() {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{1, 0, 0};
+                int[] nBlocks = new int[]{2, 0, 0};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -373,19 +383,26 @@ public class MainActivity extends AppCompatActivity
                 boolean first = true;
                 List<IRevBlock> blockList = new ArrayList<>();
 
-                IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch, nChannels[0], nStrides[0], first,
+                IRevBlock innerIRevBlock = new IRevBlock(graph, 3, 16, nStrides[0], first,
                         mult, input1, input2, "00");
                 String[] outputs = innerIRevBlock.getOutput();
                 input1 = outputs[0];
                 input2 = outputs[1];
                 blockList.add(innerIRevBlock);
 
+                IRevBlock innerIRevBlock2 = new IRevBlock(graph, 32, 16, nStrides[0], first,
+                        mult, input1, input2, "01");
+                String[] outputs2 = innerIRevBlock2.getOutput();
+                input1 = outputs2[0];
+                input2 = outputs2[1];
+                blockList.add(innerIRevBlock2);
+
                 ProbLayer probLayer = new ProbLayer(nChannels[0]*2, outputNum, 32, 32,
                         WeightInit.XAVIER);
 
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
-                        .setOutputs("outputProb", "merge", "x0", "tilde_x0");
+                        .setOutputs("outputProb", "merge", "x0", "tilde_x0", "00merge");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -424,7 +441,8 @@ public class MainActivity extends AppCompatActivity
 
                             INDArray x0 = os[2];
                             INDArray tilde_x0 = os[3];
-                            INDArray[] inverseTest = blockList.get(0).inverse(hiddens[0], hiddens[1]);
+                            INDArray[] inverseTest = blockList.get(1).inverse(hiddens[0], hiddens[1]);
+                            //inverseTest = blockList.get(1).injInverse(inverseTest[0], inverseTest[1]);
                             Log.d("x0", x0.toString());
                             Log.d("x0Inverse", inverseTest[0].toString());
                             Log.d("tilde_x0", tilde_x0.toString());

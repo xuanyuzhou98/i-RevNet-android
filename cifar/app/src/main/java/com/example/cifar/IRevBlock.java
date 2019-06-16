@@ -141,7 +141,7 @@ public class IRevBlock {
         return gradients;
     }
 
-    protected void UnitTest(INDArray x1, INDArray x2, INDArray y1, INDArray y2) {
+    protected void testInverse(INDArray x1, INDArray x2, INDArray y1, INDArray y2) {
         INDArray[] x = this.inverse(y1, y2);
         Log.d("x1", x1.toString());
         Log.d("x2", x2.toString());
