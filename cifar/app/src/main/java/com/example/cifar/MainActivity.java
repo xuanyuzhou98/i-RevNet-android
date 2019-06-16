@@ -278,8 +278,8 @@ public class MainActivity extends AppCompatActivity
                             INDArray[] hiddens = Utils.splitHalf(merge);
 
 //                            blockList.get(0).testInverse(os[2], os[3], os[4], os[5]);
-                            blockList.get(1).testInverse(os[4], os[5], os[5], os[7]);
-                            blockList.get(nBlocks[1]).testInverse(os[8], os[9], os[10], os[11]);
+                            blockList.get(1).testInverse(os[4], os[5], os[5], os[7]); // normal iRevBlock
+                            blockList.get(nBlocks[1]).testInverse(os[8], os[9], os[10], os[11]); // PSI Layer 
 
                             HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
                                     nBlocks, blockList, lossGradient);
