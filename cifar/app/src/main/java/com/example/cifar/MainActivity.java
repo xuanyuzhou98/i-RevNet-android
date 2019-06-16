@@ -60,6 +60,7 @@ import java.io.OutputStream;
 import java.lang.Math;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -144,7 +145,9 @@ public class MainActivity extends AppCompatActivity
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 1; // batch size for each epoch
+                int miniBatchSize = 128;
+                int microBatchSize = 16;
+                int microBatchNum = miniBatchSize / microBatchSize;
                 int mult = 4;
 
                 if (!new File(basePath + "/cifar").exists()) {
@@ -161,7 +164,7 @@ public class MainActivity extends AppCompatActivity
                 ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
                 ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
                 trainRR.initialize(trainSplit);
-                DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
+                DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, miniBatchSize, 1, outputNum);
                 // pixel values from 0-255 to 0-1 (min-max scaling)
                 DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
                 scaler.fit(cifarTrain);
@@ -175,7 +178,7 @@ public class MainActivity extends AppCompatActivity
                 FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
                 ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
                 testRR.initialize(testSplit);
-                DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
+                DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, miniBatchSize, 1, outputNum);
                 cifarTest.setPreProcessor(scaler); // same normalization for better results
 
 
@@ -250,39 +253,52 @@ public class MainActivity extends AppCompatActivity
                     int i = 0;
                     for (int epoch = 0; epoch <= numEpochs; epoch++) {
                         Log.d("Epoch", "Running epoch " + epoch);
+                        boolean microFirstIter = true;
                         while (cifarTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
                             DataSet data = cifarTrain.next();
-                            INDArray label = data.getLabels();
-                            INDArray features = data.getFeatures();
-                            long StartTime = System.nanoTime();
-                            INDArray[] os =  model.output(false, false, features);
-                            INDArray merge = os[1];
-                            long EndTime = System.nanoTime();
-                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished forward iter " + i);
-
-                            StartTime = System.nanoTime();
+                            List<DataSet> microbatch = data.batchBy(microBatchSize);
+                            Iterator<DataSet> microiter = microbatch.iterator();
                             Gradient gradient = new DefaultGradient();
-                            INDArray[] outputGradients = probLayer.gradient(merge, label);
-                            INDArray dwGradient = outputGradients[1];
-                            INDArray dbGradient = outputGradients[2];
-                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                            INDArray[] hiddens = Utils.splitHalf(merge);
-                            HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-                                    nBlocks, blockList, lossGradient);
-                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            while (microiter.hasNext()) {
+                                DataSet microdata = microiter.next();
+                                INDArray label = microdata.getLabels();
+                                INDArray features = microdata.getFeatures();
+                                long StartTime = System.nanoTime();
+                                INDArray[] os = model.output(false, false, features);
+                                INDArray merge = os[1];
+                                long EndTime = System.nanoTime();
+                                double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                                Log.d("forward time", String.valueOf(elapsedTimeInSecond));
+                                Log.d("output", "finished forward iter " + i);
+
+                                StartTime = System.nanoTime();
+                                INDArray[] outputGradients = probLayer.gradient(merge, label);
+                                INDArray dwGradient = outputGradients[1];
+                                INDArray dbGradient = outputGradients[2];
+                                gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                                gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                                INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                                INDArray[] hiddens = Utils.splitHalf(merge);
+                                HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+                                        nBlocks, blockList, lossGradient);
+                                if (microFirstIter) {
+                                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+                                    }
+                                }
+                                else{
+                                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                                        gradient.setGradientFor(entry.getKey(), gradient.getGradientFor(entry.getKey()).add(entry.getValue()));
+                                    }
+                                }
+                                EndTime = System.nanoTime();
+                                elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                                Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+                                Log.d("output", "finished backward iter " + i);
+                                i++;
                             }
-                            model.getUpdater().update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
-                            EndTime = System.nanoTime();
-                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished backward iter " + i);
-                            i++;
+                            model.getUpdater().update(gradient, (i + 1) / microBatchNum - 1, epoch, miniBatchSize, LayerWorkspaceMgr.noWorkspaces());
                         }
                     }
                 } else {
