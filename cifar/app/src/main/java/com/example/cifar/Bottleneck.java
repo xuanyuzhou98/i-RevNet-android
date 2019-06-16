@@ -197,7 +197,6 @@ public class Bottleneck extends SameDiffLayer {
         return btnkOut;
     }
 
-
     /**
      * Gradients without referring to the stored activation.
      * @param x [N, Cin/2, H, W]. Input activation.

@@ -144,7 +144,7 @@ public class MainActivity extends AppCompatActivity
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 16; // batch size for each epoch
+                int batchSize = 1; // batch size for each epoch
                 int mult = 4;
 
                 if (!new File(basePath + "/cifar").exists()) {
@@ -234,7 +234,9 @@ public class MainActivity extends AppCompatActivity
 
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
-                        .setOutputs("outputProb", "merge");
+                        .setOutputs( "outputProb", "merge");
+
+
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
