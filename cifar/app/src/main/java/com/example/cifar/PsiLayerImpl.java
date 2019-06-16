@@ -33,9 +33,8 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
     public INDArray activate(boolean training, LayerWorkspaceMgr workspaceMgr) {
         assertInputSet(false);
         long blockSizeSq = this.blockSize * this.blockSize;
-        INDArray originalInput = input;
-        input = input.permute(0, 2, 3, 1);
-        long[] shape = input.shape();
+        INDArray inputPermute = input.permute(0, 2, 3, 1);
+        long[] shape = inputPermute.shape();
         long batchSize = shape[0];
         long sHeight = shape[1];
         long sWidth = shape[2];
@@ -43,7 +42,7 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
         long dDepth = sDepth * blockSizeSq;
         long dHeight = sHeight / this.blockSize;
         int numOfSplits = (int)sWidth / this.blockSize;
-        INDArray[] t_1 = Utils.split(input, numOfSplits, 2);
+        INDArray[] t_1 = Utils.split(inputPermute, numOfSplits, 2);
         INDArray[] stack = new INDArray[numOfSplits];
         for (int i = 0; i < numOfSplits; i += 1) {
             INDArray t_t = t_1[i];
@@ -52,8 +51,8 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
         INDArray output = Nd4j.stack(1, stack);
         output = output.permute(0, 2, 1, 3);
         output = output.permute(0, 3, 1, 2);
-        INDArray inverse = inverse(output, this.blockSize);
-        inverse.eq(originalInput);
+//        INDArray inverse = inverse(output, this.blockSize);
+//        inverse.eq(input);
         long[] outShape = output.shape();
         INDArray out = workspaceMgr.create(ArrayType.ACTIVATIONS, this.dataType, outShape);
         out.assign(output);
@@ -98,7 +97,7 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
             stack[i] = t_t.reshape(batchSize, dHeight, sWidth, sDepth);
         }
         INDArray output = Nd4j.stack(0, stack);
-        output = output.transpose();
+        output = output.permute(1, 0, 2, 3, 4);
         output = output.permute(0, 2, 1, 3, 4).reshape(batchSize, sHeight, sWidth, sDepth);
         output = output.permute(0, 3, 1, 2);
         return output;
