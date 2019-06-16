@@ -145,7 +145,7 @@ public class MainActivity extends AppCompatActivity
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 4; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 100; // batch size for each epoch
+                int batchSize = 128; // batch size for each epoch
                 int mult = 4;
 
                 if (!new File(basePath + "/cifar").exists()) {
@@ -253,12 +253,11 @@ public class MainActivity extends AppCompatActivity
                         while (cifarTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
                             DataSet data = cifarTrain.next();
-                            List<DataSet> microbatch = data.batchBy(10);
+                            List<DataSet> microbatch = data.batchBy(16);
                             Iterator<DataSet> micitor = microbatch.iterator();
                             Gradient gradient = new DefaultGradient();
                             while (micitor.hasNext()) {
                                 DataSet microdata = micitor.next();
-                                int micro = microdata.asList().size();
                                 INDArray microlabel = microdata.getLabels();
                                 INDArray microfeatures = microdata.getFeatures();
 
@@ -280,33 +279,27 @@ public class MainActivity extends AppCompatActivity
                                 INDArray[] microhiddens = Utils.splitHalf(micromerge);
                                 HashMap<String, INDArray> microgradientMap = computeGradient(model, microhiddens[0], microhiddens[1],
                                         nBlocks, blockList, microlossGradient);
-
-
-
-                                if (counter == 0) {
-                                    microgradient.setGradientFor("outputProb_denseWeight", mdwGradient);
-                                    microgradient.setGradientFor("outputProb_denseBias", mdbGradient);
+                                if (counter % 8 == 0) {
+                                    gradient.setGradientFor("outputProb_denseWeight", mdwGradient.div(8));
+                                    gradient.setGradientFor("outputProb_denseBias", mdbGradient.div(8));
                                     for (Map.Entry<String, INDArray> entry : microgradientMap.entrySet()) {
-                                        gradient.setGradientFor(entry.getKey(), entry.getValue().div(micro));
+                                        gradient.setGradientFor(entry.getKey(), entry.getValue().div(8));
                                     }
                                 }
                                 else{
-                                    microgradient.setGradientFor("outputProb_denseWeight", mdwGradient);
-                                    microgradient.setGradientFor("outputProb_denseBias",mdbGradient);
+                                    gradient.setGradientFor("outputProb_denseWeight",gradient.getGradientFor("outputProb_denseWeight").add(mdwGradient.div(8)));
+                                    gradient.setGradientFor("outputProb_denseBias",gradient.getGradientFor("outputProb_denseBias").add(mdbGradient.div(8)));
                                     for (Map.Entry<String, INDArray> entry : microgradientMap.entrySet()) {
-                                        gradient.setGradientFor(entry.getKey(), gradient.getGradientFor(entry.getKey()).add(entry.getValue().div(micro)));
+                                        gradient.setGradientFor(entry.getKey(), gradient.getGradientFor(entry.getKey()).add(entry.getValue().div(8)));
                                     }
                                 }
                                 counter++;
-
-
-
                                 EndTime = System.nanoTime();
                                 elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                                 Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                                Log.d("output", "finished backward iter " + i + "minibatch" + counter);
-                                i++;
+                                //Log.d("output", "finished backward iter " + i + "minibatch" + counter);
                             }
+                            i++;
                             model.getUpdater().update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                         }
                     }

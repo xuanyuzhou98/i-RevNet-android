@@ -10,6 +10,9 @@ import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.linalg.primitives.Pair;
 
+import android.text.InputType;
+import android.util.Log;
+
 import org.deeplearning4j.nn.layers.AbstractLayer;
 public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
     protected int blockSize;
@@ -28,8 +31,8 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
     public INDArray activate(boolean training, LayerWorkspaceMgr workspaceMgr) {
         assertInputSet(false);
         long blockSizeSq = this.blockSize * this.blockSize;
-        input = input.permute(0, 2, 3, 1);
-        long[] shape = input.shape();
+        INDArray inputPermute = input.permute(0, 2, 3, 1);
+        long[] shape = inputPermute.shape();
         long batchSize = shape[0];
         long sHeight = shape[1];
         long sWidth = shape[2];
@@ -89,7 +92,7 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
             stack[i] = t_t.reshape(batchSize, dHeight, sWidth, sDepth);
         }
         INDArray output = Nd4j.stack(0, stack);
-        output = output.transpose();
+        output = output.permute(1, 0, 2, 3, 4);
         output = output.permute(0, 2, 1, 3, 4).reshape(batchSize, sHeight, sWidth, sDepth);
         output = output.permute(0, 3, 1, 2);
         return output;
