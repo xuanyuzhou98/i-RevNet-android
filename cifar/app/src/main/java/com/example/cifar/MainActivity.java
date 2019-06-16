@@ -300,6 +300,7 @@ public class MainActivity extends AppCompatActivity
                                 //Log.d("output", "finished backward iter " + i + "minibatch" + counter);
                             }
                             i++;
+                            Log.d("begine ", String.valueOf(i));
                             model.getUpdater().update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                         }
                     }
