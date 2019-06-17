@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Environment;
+import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -100,7 +101,7 @@ public class MainActivity extends AppCompatActivity
 
         System.out.println("ND4J Data Type Setting: " + Nd4j.dataType());
 
-        Button button = findViewById(R.id.button);
+        final Button button = findViewById(R.id.button);
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -111,6 +112,13 @@ public class MainActivity extends AppCompatActivity
                 bar.setVisibility(View.VISIBLE);
             }
         });
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                button.performClick();
+            }
+        }, 5000);
     }
 
     public static void verifyStoragePermission(Activity activity) {
