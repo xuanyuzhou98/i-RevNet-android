@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
     private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final boolean manual_gradients = true;
-    private static final boolean half_precision = false;
+    private static final boolean half_precision = true;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -189,8 +189,8 @@ public class MainActivity extends AppCompatActivity
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
                         .activation(Activation.IDENTITY)
-                        .weightInit(WeightInit.XAVIER)
-                        .updater(new Nesterovs(0.1, 0.9))
+                        .weightInit(WeightInit.XAVIER_UNIFORM)
+                        .updater(new Nesterovs(10, 0.9))
                         .l1(1e-7)
                         .l2(5e-5);
                 if (half_precision) {
@@ -234,16 +234,9 @@ public class MainActivity extends AppCompatActivity
                 ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
                         WeightInit.XAVIER);
 
-                OutputLayer outputLayer = new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                        .nOut(outputNum)
-                        .activation(Activation.SOFTMAX)
-                        .build();
-
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
                         .setOutputs( "outputProb", "merge");
-
-
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -286,6 +279,7 @@ public class MainActivity extends AppCompatActivity
                             }
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                            model.params().subi(modelGradients);
                             EndTime = System.nanoTime();
                             elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("backward time", String.valueOf(elapsedTimeInSecond));

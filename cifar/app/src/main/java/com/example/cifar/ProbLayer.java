@@ -1,5 +1,6 @@
 package com.example.cifar;
 
+import android.provider.ContactsContract;
 import android.util.Log;
 
 import org.deeplearning4j.nn.conf.inputs.InputType;
@@ -9,6 +10,7 @@ import org.deeplearning4j.nn.conf.layers.samediff.SameDiffOutputLayer;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.autodiff.samediff.SameDiff;
+import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Pooling2DConfig;
 
@@ -99,8 +101,8 @@ public class ProbLayer extends SameDiffLayer {
     public INDArray[] gradient(INDArray x, INDArray label) {
         SameDiff sd = SameDiff.create();
         SDVariable layerInput = sd.var("input", x);
-        SDVariable labelInput = sd.constant("label", label);
         layerInput.isPlaceHolder();
+        SDVariable labelInput = sd.constant("label", label);
         SDVariable outputDense = defineLayer(sd, layerInput, paramTable, null);
         SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, outputDense);
         Log.d("loss", loss.eval().toString());
