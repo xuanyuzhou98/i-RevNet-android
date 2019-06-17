@@ -79,7 +79,7 @@ public class MainActivity extends AppCompatActivity
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
     private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final boolean manual_gradients = true;
-    private static final boolean half_precision = true;
+    private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -206,7 +206,7 @@ public class MainActivity extends AppCompatActivity
                 }
                 ComputationGraphConfiguration.GraphBuilder graph = config.graphBuilder();
 
-                graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels)); //(3, 3, 32, 32)
+                graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels));
                 String lastLayer = "input";
                 if (init_ds != 0) {
                     graph.addLayer("init_psi", new PsiLayer.Builder()
@@ -215,11 +215,11 @@ public class MainActivity extends AppCompatActivity
                     lastLayer = "init_psi";
                 }
 
-                graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer) //(3, 1, 32, 32)
-                        .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer); //(3, 2, 32, 32)
+                graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer)
+                        .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer);
                 int in_ch_Block = in_ch;
-                String input1 = "x0"; //(3, 1, 32, 32)
-                String input2 = "tilde_x0"; // (3, 2, 32, 32)
+                String input1 = "x0";
+                String input2 = "tilde_x0";
                 boolean first = true;
                 List<IRevBlock> blockList = new ArrayList<>();
                 for (int i = 0; i < 3; i++) { // for each stage
