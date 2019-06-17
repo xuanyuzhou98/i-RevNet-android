@@ -160,7 +160,7 @@ public class MainActivity extends AppCompatActivity
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 16;
+                int batchSize = 10;
                 int mult = 4;
 
                 if (!new File(basePath + "/cifar").exists()) {
@@ -321,6 +321,7 @@ public class MainActivity extends AppCompatActivity
                     INDArray[] x = iRev.inverse(y1, y2);
                     INDArray x1 = x[0];
                     INDArray x2 = x[1];
+                    Runtime.getRuntime().gc();
                     y1 = x1;
                     y2 = x2;
                     List<INDArray> gradients = iRev.gradient(x2, dy1, dy2);
