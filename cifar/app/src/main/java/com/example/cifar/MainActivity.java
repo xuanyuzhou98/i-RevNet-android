@@ -164,7 +164,7 @@ public class MainActivity extends AppCompatActivity
                 Random randNumGen = new Random(rngSeed);
                 int batchSize = 128;
                 int mult = 4;
-                double init_lr = 1;
+                double init_lr = 10;
                 int lrDecayStep = 40;
 
                 if (!new File(basePath + "/cifar").exists()) {
