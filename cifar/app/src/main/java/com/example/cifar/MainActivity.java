@@ -162,9 +162,9 @@ public class MainActivity extends AppCompatActivity
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 10;
+                int batchSize = 128;
                 int mult = 4;
-                double init_lr = 10;
+                double init_lr = 1;
                 int lrDecayStep = 40;
 
                 if (!new File(basePath + "/cifar").exists()) {
@@ -269,9 +269,9 @@ public class MainActivity extends AppCompatActivity
                             List<DataSet> microbatch = data.batchBy(16);
                             Iterator<DataSet> micitor = microbatch.iterator();
                             Gradient gradient = new DefaultGradient(modelGradients);
-
+                            int count = 0;
                             while (micitor.hasNext()) {
-                                int count = 0;
+
                                 DataSet microdata = micitor.next();
                                 INDArray microlabel = microdata.getLabels();
                                 INDArray microfeatures = microdata.getFeatures();
@@ -281,7 +281,7 @@ public class MainActivity extends AppCompatActivity
                                 long EndTime = System.nanoTime();
                                 double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                                 Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                                Log.d("output", "finished forward iter " + i + " (" + i % 8 + "/" + 8 + ")");
+                                Log.d("output", "finished forward iter " + i + " (" + count % 8 + "/" + 8 + ")");
 
                                 StartTime = System.nanoTime();
 
@@ -294,19 +294,19 @@ public class MainActivity extends AppCompatActivity
                                         nBlocks, blockList, lossGradient);
 
                                 if (count == 0) {
-                                    gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                                    gradient.setGradientFor("outputProb_denseWeight", dwGradient.div(8));
+                                    gradient.setGradientFor("outputProb_denseBias", dbGradient.div(8));
                                     for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+                                        gradient.setGradientFor(entry.getKey(), entry.getValue().div(8));
                                     }
                                 } else {
                                     gradient.setGradientFor("outputProb_denseWeight",
-                                            gradient.getGradientFor("outputProb_denseWeight").add(dwGradient));
+                                            gradient.getGradientFor("outputProb_denseWeight").add(dwGradient.div(8)));
                                     gradient.setGradientFor("outputProb_denseBias",
-                                            gradient.getGradientFor("outputProb_denseBias").add(dbGradient));
+                                            gradient.getGradientFor("outputProb_denseBias").add(dbGradient.div(8)));
                                     for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
                                         gradient.setGradientFor(entry.getKey(),
-                                                gradient.getGradientFor(entry.getKey()).add(entry.getValue()));
+                                                gradient.getGradientFor(entry.getKey()).add(entry.getValue().div(8)));
                                     }
                                 }
 
