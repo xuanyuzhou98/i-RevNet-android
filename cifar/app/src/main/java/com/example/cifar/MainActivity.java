@@ -61,6 +61,7 @@ import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
 import org.nd4j.linalg.memory.MemoryManager;
+import org.nd4j.linalg.schedule.MapSchedule;
 import org.nd4j.linalg.schedule.ScheduleType;
 import org.nd4j.linalg.schedule.StepSchedule;
 
@@ -120,7 +121,7 @@ public class MainActivity extends AppCompatActivity
             public void run() {
                 button.performClick();
             }
-        }, 5000);
+        }, 1000);
     }
 
     public static void verifyStoragePermission(Activity activity) {
@@ -162,10 +163,15 @@ public class MainActivity extends AppCompatActivity
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
                 Random randNumGen = new Random(rngSeed);
-                int batchSize = 10;
+                int batchSize = 64;
                 int mult = 4;
                 double init_lr = 10;
-                int lrDecayStep = 40;
+
+                Map<Integer, Double> learningRateSchedule = new HashMap<>();
+                learningRateSchedule.put(0, init_lr);
+                learningRateSchedule.put(40, init_lr * Math.pow(0.2, 1));
+                learningRateSchedule.put(120, init_lr * Math.pow(0.2, 2));
+                learningRateSchedule.put(160, init_lr * Math.pow(0.2, 3));
 
                 if (!new File(basePath + "/cifar").exists()) {
                     Log.d("Data download", "Data downloaded from " + dataUrl);
@@ -202,8 +208,8 @@ public class MainActivity extends AppCompatActivity
                         .seed(rngSeed)
                         .activation(Activation.IDENTITY)
                         .weightInit(WeightInit.XAVIER_UNIFORM)
-                        .updater(new Nesterovs(new StepSchedule(ScheduleType.ITERATION,
-                                init_lr, 0.2, lrDecayStep), 0.9))
+                        .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION,
+                                learningRateSchedule), 0.9))
                         .l1(1e-7)
                         .l2(5e-5);
                 if (half_precision) {
@@ -262,6 +268,7 @@ public class MainActivity extends AppCompatActivity
                     int i = 0;
                     model.initGradientsView();
                     INDArray modelGradients = model.getFlattenedGradients();
+                    Gradient gradient = new DefaultGradient(modelGradients);
                     for (int epoch = 0; epoch < numEpochs; epoch++) {
                         while (cifarTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
@@ -276,7 +283,6 @@ public class MainActivity extends AppCompatActivity
                             Log.d("output", "finished forward iter " + i);
 
                             StartTime = System.nanoTime();
-                            Gradient gradient = new DefaultGradient(modelGradients);
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
                             INDArray dwGradient = outputGradients[1];
                             INDArray dbGradient = outputGradients[2];
