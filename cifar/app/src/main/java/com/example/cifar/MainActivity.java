@@ -262,36 +262,59 @@ public class MainActivity extends AppCompatActivity
                         while (cifarTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
                             DataSet data = cifarTrain.next();
-                            INDArray label = data.getLabels();
-                            INDArray features = data.getFeatures();
-                            long StartTime = System.nanoTime();
-                            INDArray merge = model.output(false, false, features)[1];
-                            long EndTime = System.nanoTime();
-                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished forward iter " + i);
-
-                            StartTime = System.nanoTime();
+                            List<DataSet> microbatch = data.batchBy(16);
+                            Iterator<DataSet> micitor = microbatch.iterator();
                             Gradient gradient = new DefaultGradient(modelGradients);
-                            INDArray[] outputGradients = probLayer.gradient(merge, label);
-                            INDArray dwGradient = outputGradients[1];
-                            INDArray dbGradient = outputGradients[2];
-                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                            INDArray[] hiddens = Utils.splitHalf(merge);
-                            HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-                                    nBlocks, blockList, lossGradient);
-                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            while (micitor.hasNext()) {
+                                int count = 0;
+                                DataSet microdata = micitor.next();
+                                INDArray microlabel = microdata.getLabels();
+                                INDArray microfeatures = microdata.getFeatures();
+
+                                long StartTime = System.nanoTime();
+                                INDArray merge = model.output(false, false, microfeatures)[1];
+                                long EndTime = System.nanoTime();
+                                double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                                Log.d("forward time", String.valueOf(elapsedTimeInSecond));
+                                Log.d("output", "finished forward iter " + i + " (" + i%8 + "/" + 8 + ")");
+
+                                StartTime = System.nanoTime();
+
+                                INDArray[] outputGradients = probLayer.gradient(merge, microlabel);
+                                INDArray dwGradient = outputGradients[1];
+                                INDArray dbGradient = outputGradients[2];
+                                INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                                INDArray[] hiddens = Utils.splitHalf(merge);
+                                HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+                                        nBlocks, blockList, lossGradient);
+
+                                if (count == 0) {
+                                    gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                                        gradient.setGradientFor(entry.getKey(), entry.getValue());
+                                    }
+                                }
+                                else {
+                                    gradient.setGradientFor("outputProb_denseWeight",
+                                            gradient.getGradientFor("outputProb_denseWeight").add(dwGradient));
+                                    gradient.setGradientFor("outputProb_denseBias",
+                                            gradient.getGradientFor("outputProb_denseBias").add(dbGradient));
+                                    for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                                        gradient.setGradientFor(entry.getKey(),
+                                                gradient.getGradientFor(entry.getKey()).add(entry.getValue()));
+                                    }
+                                }
+
+                                EndTime = System.nanoTime();
+                                elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                                Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+                                Log.d("output", "finished backward iter " + i);
+                                count++;
                             }
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             model.params().subi(modelGradients);
-                            EndTime = System.nanoTime();
-                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished backward iter " + i);
                             i++;
                         }
                     }
