@@ -61,6 +61,8 @@ import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
 import org.nd4j.linalg.memory.MemoryManager;
+import org.nd4j.linalg.schedule.ScheduleType;
+import org.nd4j.linalg.schedule.StepSchedule;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -162,6 +164,8 @@ public class MainActivity extends AppCompatActivity
                 Random randNumGen = new Random(rngSeed);
                 int batchSize = 10;
                 int mult = 4;
+                double init_lr = 10;
+                int lrDecayStep = 40;
 
                 if (!new File(basePath + "/cifar").exists()) {
                     Log.d("Data download", "Data downloaded from " + dataUrl);
@@ -198,7 +202,8 @@ public class MainActivity extends AppCompatActivity
                         .seed(rngSeed)
                         .activation(Activation.IDENTITY)
                         .weightInit(WeightInit.XAVIER_UNIFORM)
-                        .updater(new Nesterovs(10, 0.9))
+                        .updater(new Nesterovs(new StepSchedule(ScheduleType.ITERATION,
+                                init_lr, 0.2, lrDecayStep), 0.9))
                         .l1(1e-7)
                         .l2(5e-5);
                 if (half_precision) {
@@ -251,7 +256,6 @@ public class MainActivity extends AppCompatActivity
                 model.init();
                 MemoryManager mg = Nd4j.getMemoryManager();
                 mg.togglePeriodicGc(true);
-                model.setListeners(new ScoreIterationListener(1));
 
                 Log.d("Output", "start training");
                 if (manual_gradients) {
@@ -280,7 +284,7 @@ public class MainActivity extends AppCompatActivity
                             gradient.setGradientFor("outputProb_denseBias", dbGradient);
                             INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
                             INDArray[] hiddens = Utils.splitHalf(merge);
-                            HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
+                            HashMap<String, INDArray> gradientMap = computeGradient(hiddens[0], hiddens[1],
                                     nBlocks, blockList, lossGradient);
                             for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
                                 gradient.setGradientFor(entry.getKey(), entry.getValue());
@@ -307,7 +311,7 @@ public class MainActivity extends AppCompatActivity
         }
 
             // This function computes the total gradient of the graph without referring to the stored activation
-        protected HashMap<String, INDArray> computeGradient(ComputationGraph model, INDArray y1, INDArray y2, int[] nBlocks,
+        protected HashMap<String, INDArray> computeGradient(INDArray y1, INDArray y2, int[] nBlocks,
                                                             List<IRevBlock> blockList, INDArray[] lossGradient) {
 
             HashMap<String, INDArray> gradsResult = new HashMap<>();
