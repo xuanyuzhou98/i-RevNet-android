@@ -293,7 +293,7 @@ public class MainActivity extends AppCompatActivity
                                 HashMap<String, INDArray> gradientMap = computeGradient(hiddens[0], hiddens[1],
                                         nBlocks, blockList, lossGradient);
 
-                                if (count == 0) {
+                                if (count%8 == 0) {
                                     gradient.setGradientFor("outputProb_denseWeight", dwGradient.div(8));
                                     gradient.setGradientFor("outputProb_denseBias", dbGradient.div(8));
                                     for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
