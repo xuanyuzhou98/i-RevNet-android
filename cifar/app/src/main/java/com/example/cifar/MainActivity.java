@@ -310,6 +310,7 @@ public class MainActivity extends AppCompatActivity
                             }
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                            Log.d("gradient", gradient.gradient().toString());
                             model.params().subi(modelGradients);
                             EndTime = System.nanoTime();
                             elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
