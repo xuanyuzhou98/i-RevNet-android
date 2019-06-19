@@ -19,6 +19,10 @@ import org.datavec.image.transform.FlipImageTransform;
 import org.datavec.image.transform.ImageTransform;
 import org.datavec.image.transform.MultiImageTransform;
 import org.datavec.image.transform.RandomCropTransform;
+import org.deeplearning4j.common.resources.DL4JResources;
+import org.deeplearning4j.common.resources.ResourceType;
+import org.deeplearning4j.datasets.fetchers.DataSetType;
+import org.deeplearning4j.datasets.iterator.impl.Cifar10DataSetIterator;
 import org.deeplearning4j.nn.api.Trainable;
 import org.deeplearning4j.nn.updater.LayerUpdater;
 import org.deeplearning4j.nn.updater.UpdaterBlock;
@@ -153,7 +157,7 @@ public class MainActivity extends AppCompatActivity
         protected String doInBackground(String... params) {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{18, 18, 18};
+                int[] nBlocks = new int[]{2, 2, 2};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -183,13 +187,16 @@ public class MainActivity extends AppCompatActivity
                     }
                 }
 
+                Log.d("home", "now home is " + DL4JResources.getBaseDirectory().toString());
+                DL4JResources.setBaseDirectory(new File(basePath));
+                Log.d("home", "now home is " + DL4JResources.getBaseDirectory().toString());
+//                File localCacheDir = DL4JResources.getDirectory(ResourceType.DATASET, "cifar10");
+//                localCacheDir.mkdirs();
+//                Log.d("makedir", "make dir success " + localCacheDir.exists());
+//                Log.d("makedir", "absolute dir " + localCacheDir.getAbsolutePath());
+
                 // vectorization of train data
-                File trainData = new File(basePath + "/cifar/train");
-                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
-                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                trainRR.initialize(trainSplit);
-                DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
+                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
                 // pixel values from 0-255 to 0-1 (min-max scaling)
                 DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
                 scaler.fit(cifarTrain);
@@ -199,11 +206,7 @@ public class MainActivity extends AppCompatActivity
                 cifarTrain.setPreProcessor(scaler);
 
                 // vectorization of test data
-                File testData = new File(basePath + "/cifar/test");
-                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                testRR.initialize(testSplit);
-                DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
+                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
                 cifarTest.setPreProcessor(scaler); // same normalization for better results
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
@@ -311,6 +314,7 @@ public class MainActivity extends AppCompatActivity
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             Log.d("gradient", gradient.gradient().toString());
+                            Log.d("label", label.toString());
                             model.params().subi(modelGradients);
                             EndTime = System.nanoTime();
                             elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
