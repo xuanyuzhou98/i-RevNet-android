@@ -32,6 +32,7 @@ import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.optimize.Solver;
 import org.deeplearning4j.util.ModelSerializer;
+import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
@@ -278,7 +279,6 @@ public class MainActivity extends AppCompatActivity
                             Log.d("forward time", String.valueOf(elapsedTimeInSecond));
                             Log.d("output", "finished forward iter " + i);
 
-                            // Backward Pass
                             StartTime = System.nanoTime();
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
                             INDArray dwGradient = outputGradients[1];
@@ -309,6 +309,7 @@ public class MainActivity extends AppCompatActivity
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
+
             return "";
         }
 
