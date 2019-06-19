@@ -25,6 +25,8 @@ import org.deeplearning4j.nn.updater.UpdaterBlock;
 import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.util.ModelSerializer;
+import org.nd4j.autodiff.samediff.SDVariable;
+import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
 import org.nd4j.linalg.api.memory.conf.WorkspaceConfiguration;
@@ -253,9 +255,15 @@ public class MainActivity extends AppCompatActivity
                 ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
                         WeightInit.XAVIER);
 
+                LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
+                        .activation(Activation.SOFTMAX)
+                        .build();
+
+
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
-                        .setOutputs( "outputProb", "merge");
+                        .addLayer("output", lossLayer, "outputProb")
+                        .setOutputs( "output", "merge");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -277,10 +285,15 @@ public class MainActivity extends AppCompatActivity
                             INDArray features = data.getFeatures();
                             long StartTime = System.nanoTime();
                             INDArray merge = model.output(false, false, features)[1];
+                            INDArray output = model.output(false, false, features)[0];
                             long EndTime = System.nanoTime();
                             double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("forward time", String.valueOf(elapsedTimeInSecond));
                             Log.d("output", "finished forward iter " + i);
+
+                            Evaluation eval = new Evaluation(10);
+                            eval.eval(label, output);
+                            Log.d("accuracy", eval.stats());
 
                             StartTime = System.nanoTime();
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
@@ -313,6 +326,7 @@ public class MainActivity extends AppCompatActivity
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
+
             return "";
         }
 
