@@ -36,6 +36,7 @@ import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerMinMaxScaler;
+import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.dataset.api.preprocessor.StandardizeStrategy;
 import org.nd4j.linalg.learning.NesterovsUpdater;
 import org.nd4j.linalg.learning.config.IUpdater;
@@ -183,12 +184,15 @@ public class MainActivity extends AppCompatActivity
                 trainRR.initialize(trainSplit);
                 DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
                 // pixel values from 0-255 to 0-1 (min-max scaling)
-                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-                scaler.fit(cifarTrain);
+                DataNormalization norm = new NormalizerStandardize();
+                norm.fit(cifarTrain);
+                cifarTrain.setPreProcessor(norm);
+                //DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+                //scaler.fit(cifarTrain);
 //                ImageTransform transform = new MultiImageTransform(
 //                        new CropImageTransform(10),
 //                        new FlipImageTransform(1));
-                cifarTrain.setPreProcessor(scaler);
+                //cifarTrain.setPreProcessor(scaler);
 
                 // vectorization of test data
                 File testData = new File(basePath + "/cifar/test");
@@ -196,7 +200,7 @@ public class MainActivity extends AppCompatActivity
                 ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
                 testRR.initialize(testSplit);
                 DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
-                cifarTest.setPreProcessor(scaler); // same normalization for better results
+                cifarTest.setPreProcessor(norm); // same normalization for better results
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
