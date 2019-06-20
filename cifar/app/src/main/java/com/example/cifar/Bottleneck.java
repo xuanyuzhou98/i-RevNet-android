@@ -22,6 +22,7 @@ public class Bottleneck extends SameDiffLayer {
     private int mult;
     private int filterSize = 3;
     private boolean first;
+    private SameDiff sd;
     private Map<String, SDVariable> paramTable;
 
     public Bottleneck(int in_ch, int out_ch, int stride,
@@ -131,10 +132,8 @@ public class Bottleneck extends SameDiffLayer {
      * @param x [N, Cin/2, H, W]. Input activation.
      */
     public INDArray forward(INDArray x) {
-        SameDiff sd = SameDiff.create();
-        SDVariable layerInput = sd.var("input", x);
+        SDVariable layerInput = sd.getVariable("input");
         layerInput.isPlaceHolder();
-        defineLayer(sd, layerInput, this.paramTable, null);
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
         INDArray btnkOut = sd.execSingle(placeHolders, "conv3");

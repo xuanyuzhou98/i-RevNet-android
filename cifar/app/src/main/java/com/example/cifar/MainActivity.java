@@ -33,12 +33,14 @@ import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.optimize.Solver;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.autodiff.samediff.SDVariable;
+import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
 import org.nd4j.linalg.api.memory.conf.WorkspaceConfiguration;
 import org.nd4j.linalg.api.memory.enums.AllocationPolicy;
 import org.nd4j.linalg.api.memory.enums.LearningPolicy;
+import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Pooling2DConfig;
 import org.nd4j.linalg.dataset.DataSet;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
@@ -247,7 +249,7 @@ public class MainActivity extends AppCompatActivity
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
                         .addLayer("output", lossLayer, "outputProb")
-                        .setOutputs( "output", "merge");
+                        .setOutputs( "output");//周轩宇备注：如果要改成手动gradient，这里第0项要加merge
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
