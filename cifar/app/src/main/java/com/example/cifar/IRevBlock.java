@@ -33,7 +33,7 @@ public class IRevBlock {
         this.stride = stride;
         this.prefix = prefix;
         this.bottleneck = new Bottleneck(in_ch/2, out_ch, stride,
-                mult, WeightInit.XAVIER, first);
+                mult, first);
         if (stride == 1 && pad != 0) {
             graphBuilder.addVertex(prefix + "merge", new MergeVertex(), input1, input2)
                         .addLayer(prefix + "permute1", new PermuteLayer(0, 2, 1, 3), prefix + "merge") //injective padding

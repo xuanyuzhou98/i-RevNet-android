@@ -25,15 +25,13 @@ public class Bottleneck extends SameDiffLayer {
     private int filterSize = 3;
     private boolean first;
     private Map<String, SDVariable> paramTable;
-    private Map<String, INDArray> params;
 
     public Bottleneck(int in_ch, int out_ch, int stride,
-                      int mult, WeightInit weightInit, boolean first) {
+                      int mult, boolean first) {
         this.in_ch = in_ch;
         this.out_ch = out_ch;
         this.stride = stride;
         this.mult = mult;
-        this.weightInit = weightInit;
         this.first = first;
     }
 
@@ -146,7 +144,6 @@ public class Bottleneck extends SameDiffLayer {
 //        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("var3"));
 //        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("gamma3"));
 //        initWeights(out_ch/mult, out_ch/mult, WeightInit.ZERO, params.get("beta3"));
-        this.params = params;
     }
 
 

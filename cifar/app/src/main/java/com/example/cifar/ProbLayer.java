@@ -24,12 +24,10 @@ public class ProbLayer extends SameDiffLayer {
     private int height;
     private int width;
     private Map<String, SDVariable> paramTable;
-    protected WeightInit weightInit;
 
-    public ProbLayer(int in_ch, int out_ch, int height, int width, WeightInit weightInit) {
+    public ProbLayer(int in_ch, int out_ch, int height, int width) {
         this.in_ch = in_ch;
         this.out_ch = out_ch;
-        this.weightInit = weightInit;
         this.height = height;
         this.width = width;
     }
@@ -60,7 +58,8 @@ public class ProbLayer extends SameDiffLayer {
                 .sH(1).sW(1)
                 .build();
         SDVariable outputPool = sd.cnn().avgPooling2d("outputPool", outputRelu, c);
-        SDVariable outputSqueeze = sd.squeeze("squeeze", outputPool, 2);
+
+        SDVariable outputSqueeze = sd.squeeze("squeeze", outputRelu, 2);
         SDVariable outputReshape = sd.squeeze("reshape", outputSqueeze, 2);
         SDVariable outputDense = sd.nn().linear("outputDense", outputReshape, denseWeight, denseBias);
         return outputDense;
@@ -75,8 +74,8 @@ public class ProbLayer extends SameDiffLayer {
      */
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
-        initWeights(in_ch, out_ch, weightInit, params.get("denseWeight"));
-        initWeights(1, out_ch, weightInit, params.get("denseBias"));
+        initWeights(in_ch, out_ch, WeightInit.XAVIER_UNIFORM, params.get("denseWeight"));
+        initWeights(in_ch, out_ch, WeightInit.UNIFORM, params.get("denseBias"));
     }
 
 

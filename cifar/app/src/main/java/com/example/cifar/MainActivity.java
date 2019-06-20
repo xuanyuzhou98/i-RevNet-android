@@ -168,10 +168,9 @@ public class MainActivity extends AppCompatActivity
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
-                Random randNumGen = new Random(rngSeed);
                 int batchSize = 64;
                 int mult = 4;
-                double init_lr = 10;
+                double init_lr = 1;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -179,33 +178,15 @@ public class MainActivity extends AppCompatActivity
                 learningRateSchedule.put(120, init_lr * Math.pow(0.2, 2));
                 learningRateSchedule.put(160, init_lr * Math.pow(0.2, 3));
 
-                if (!new File(basePath + "/cifar").exists()) {
-                    Log.d("Data download", "Data downloaded from " + dataUrl);
-                    String localFilePath = basePath + "/cifar.tgz";
-                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
-                        DataUtilities.extractTarGz(localFilePath, basePath);
-                    }
+                File baseDir = new File(basePath);
+                if (!baseDir.exists()) {
+                    baseDir.mkdir();
                 }
-
-                Log.d("home", "now home is " + DL4JResources.getBaseDirectory().toString());
-                DL4JResources.setBaseDirectory(new File(basePath));
-                Log.d("home", "now home is " + DL4JResources.getBaseDirectory().toString());
-//                File localCacheDir = DL4JResources.getDirectory(ResourceType.DATASET, "cifar10");
-//                localCacheDir.mkdirs();
-//                Log.d("makedir", "make dir success " + localCacheDir.exists());
-//                Log.d("makedir", "absolute dir " + localCacheDir.getAbsolutePath());
-
-                // vectorization of train data
+                DL4JResources.setBaseDirectory(baseDir);
                 Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
-                // pixel values from 0-255 to 0-1 (min-max scaling)
                 DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
                 scaler.fit(cifarTrain);
-//                ImageTransform transform = new MultiImageTransform(
-//                        new CropImageTransform(10),
-//                        new FlipImageTransform(1));
                 cifarTrain.setPreProcessor(scaler);
-
-                // vectorization of test data
                 Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
                 cifarTest.setPreProcessor(scaler); // same normalization for better results
 
@@ -255,8 +236,7 @@ public class MainActivity extends AppCompatActivity
                     }
                 }
 
-                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
-                        WeightInit.XAVIER);
+                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8);
 
                 LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                         .activation(Activation.SOFTMAX)
