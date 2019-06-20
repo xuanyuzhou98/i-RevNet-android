@@ -30,12 +30,14 @@ import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.autodiff.samediff.SDVariable;
+import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
 import org.nd4j.linalg.api.memory.conf.WorkspaceConfiguration;
 import org.nd4j.linalg.api.memory.enums.AllocationPolicy;
 import org.nd4j.linalg.api.memory.enums.LearningPolicy;
+import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Pooling2DConfig;
 import org.nd4j.linalg.dataset.DataSet;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
@@ -86,7 +88,6 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity
         implements ActivityCompat.OnRequestPermissionsResultCallback {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
-    private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -170,7 +171,7 @@ public class MainActivity extends AppCompatActivity
                 int numEpochs = 1; // number of epochs to perform
                 int batchSize = 64;
                 int mult = 4;
-                double init_lr = 10;
+                double init_lr = 0.1;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -236,17 +237,16 @@ public class MainActivity extends AppCompatActivity
                     }
                 }
 
-                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8);
+                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum);
 
                 LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                         .activation(Activation.SOFTMAX)
                         .build();
 
-
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
                         .addLayer("output", lossLayer, "outputProb")
-                        .setOutputs( "output", "merge");
+                        .setOutputs( "output");//周轩宇备注：如果要改成手动gradient，这里第0项要加merge
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -266,9 +266,21 @@ public class MainActivity extends AppCompatActivity
                             DataSet data = cifarTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
+
+                            //Option#1: 用系统自带的方法算gradient，和Option#2选择一个comment掉
+                            model.setInputs(features);
+                            model.setLabels(label);
+                            model.computeGradientAndScore();
+                            INDArray grad = model.gradient().gradient(); // 在这行设breakpoint,可以看每个variable对应的gradient
+                            //Option#1结束
+
+
+                            //Option#2: 用我们的方法算gradient
                             long StartTime = System.nanoTime();
-                            INDArray merge = model.output(false, false, features)[1];
-                            INDArray output = model.output(false, false, features)[0];
+                            INDArray[] outputs = model.output(false, false, features);
+                            INDArray merge = outputs[1];
+                            INDArray output = outputs[0];
+
                             long EndTime = System.nanoTime();
                             double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("forward time", String.valueOf(elapsedTimeInSecond));
@@ -277,7 +289,6 @@ public class MainActivity extends AppCompatActivity
                             Evaluation eval = new Evaluation(10);
                             eval.eval(label, output);
                             Log.d("accuracy", eval.stats());
-
                             StartTime = System.nanoTime();
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
                             INDArray dwGradient = outputGradients[1];
@@ -291,15 +302,23 @@ public class MainActivity extends AppCompatActivity
                             for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
                                 gradient.setGradientFor(entry.getKey(), entry.getValue());
                             }
-                            ComputationGraphUpdater optimizer = model.getUpdater();
-                            optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             Log.d("gradient", gradient.gradient().toString());
-                            Log.d("label", label.toString());
-                            model.params().subi(modelGradients);
-                            EndTime = System.nanoTime();
-                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished backward iter " + i);
+                            //Option#2结束
+
+
+
+
+
+//                            ComputationGraphUpdater optimizer = model.getUpdater();
+//                            optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+//                            Log.d("gradient", gradient.gradient().toString());
+//                            Log.d("label", label.toString());
+//                            model.params().addi(modelGradients);
+//                            EndTime = System.nanoTime();
+//                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+//                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+//                            Log.d("output", "finished backward iter " + i);
+
                             i++;
                         }
                     }
