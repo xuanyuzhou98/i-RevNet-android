@@ -58,8 +58,7 @@ public class ProbLayer extends SameDiffLayer {
                 .sH(1).sW(1)
                 .build();
         SDVariable outputPool = sd.cnn().avgPooling2d("outputPool", outputRelu, c);
-
-        SDVariable outputSqueeze = sd.squeeze("squeeze", outputRelu, 2);
+        SDVariable outputSqueeze = sd.squeeze("squeeze", outputPool, 2);
         SDVariable outputReshape = sd.squeeze("reshape", outputSqueeze, 2);
         SDVariable outputDense = sd.nn().linear("outputDense", outputReshape, denseWeight, denseBias);
         return outputDense;
