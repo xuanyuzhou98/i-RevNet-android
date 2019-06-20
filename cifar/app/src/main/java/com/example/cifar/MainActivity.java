@@ -246,7 +246,8 @@ public class MainActivity extends AppCompatActivity
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
                         .addLayer("output", lossLayer, "outputProb")
-                        .setOutputs( "output");//周轩宇备注：如果要改成手动gradient，这里第0项要加merge
+                        .setOutputs( "output", "merge");//周轩宇备注：如果要改成手动gradient，这里第0项要加merge
+                                                        //翟博涵备注: 楼上说反了，应该加到第1项
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -268,11 +269,11 @@ public class MainActivity extends AppCompatActivity
                             INDArray features = data.getFeatures();
 
                             //Option#1: 用系统自带的方法算gradient，和Option#2选择一个comment掉
-                            model.setInputs(features);
-                            model.setLabels(label);
-                            model.computeGradientAndScore();
-                            INDArray grad = model.gradient().gradient(); // 在这行设breakpoint,可以看每个variable对应的gradient
-                            //Option#1结束
+//                            model.setInputs(features);
+//                            model.setLabels(label);
+//                            model.computeGradientAndScore();
+//                            INDArray grad = model.gradient().gradient(); // 在这行设breakpoint,可以看每个variable对应的gradient
+//                            //Option#1结束
 
 
                             //Option#2: 用我们的方法算gradient
