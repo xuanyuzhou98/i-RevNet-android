@@ -188,14 +188,12 @@ public class MainActivity extends AppCompatActivity
                     baseDir.mkdir();
                 }
                 DL4JResources.setBaseDirectory(baseDir);
-                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
-                        DataSetType.TRAIN, null, rngSeed);
-                DataNormalization normalizer = new NormalizerStandardize();
-                normalizer.fit(cifarTrain);
-                cifarTrain.setPreProcessor(normalizer);
-                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
-                        DataSetType.TEST, null, rngSeed);
-                cifarTest.setPreProcessor(normalizer);
+                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
+                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+                scaler.fit(cifarTrain);
+                cifarTrain.setPreProcessor(scaler);
+                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
+                cifarTest.setPreProcessor(scaler); // same normalization for better results
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
