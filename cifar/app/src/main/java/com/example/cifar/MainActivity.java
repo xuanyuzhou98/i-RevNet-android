@@ -187,7 +187,7 @@ public class MainActivity extends AppCompatActivity
 
                 File baseDir = new File(basePath);
                 if (!baseDir.exists()) {
-                    baseDir.mkdir();
+                    baseDir.mkdirs();
                 }
                 DL4JResources.setBaseDirectory(baseDir);
                 Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
