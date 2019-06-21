@@ -272,10 +272,11 @@ public class MainActivity extends AppCompatActivity
                             model.setLabels(label);
                             model.computeGradientAndScore();
                             INDArray grad = model.gradient().gradient();
-                            INDArray dwGradient = model.gradient().getGradientFor("outputProb_denseWeight"); // 在这行设breakpoint,可以看每个variable对应的gradient
-                            INDArray dbGradient = model.gradient().getGradientFor("outputProb_denseBias");
-                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
+//                            INDArray dwGradient = model.gradient().getGradientFor("outputProb_denseWeight"); // 在这行设breakpoint,可以看每个variable对应的gradient
+                            Map<String, INDArray> gradList = model.gradient().gradientForVariable();
+                            for (Map.Entry<String, INDArray> entry : gradList.entrySet()) {
+                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            }
                             //Option#1结束
 
 
