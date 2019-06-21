@@ -21,7 +21,7 @@ import java.util.Map;
 public class ProbLayer extends SameDiffLayer {
     private int in_ch;
     private int out_ch;
-    private SameDiff sd;
+    public SameDiff sd;
 
     public ProbLayer(int in_ch, int out_ch) {
         this.in_ch = in_ch;

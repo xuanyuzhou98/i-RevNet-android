@@ -181,7 +181,7 @@ public class MainActivity extends AppCompatActivity
 
                 File baseDir = new File(basePath);
                 if (!baseDir.exists()) {
-                    baseDir.mkdir();
+                    baseDir.mkdirs();
                 }
                 DL4JResources.setBaseDirectory(baseDir);
                 Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
@@ -291,6 +291,13 @@ public class MainActivity extends AppCompatActivity
 //                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
 //                            Log.d("output", "finished forward iter " + i);
 //
+                            // print loss
+//                            SameDiff sd = probLayer.sd;
+//                            SDVariable labelInput = sd.var("label1", label);
+//                            labelInput.isPlaceHolder();
+//                            SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, sd.getVariable("outputDense"));
+//                            Log.d("loss", loss.toString());
+                            // evaluation
                             Evaluation eval = new Evaluation(10);
                             eval.eval(label, output);
                             Log.d("accuracy", eval.stats());
