@@ -18,7 +18,6 @@ import org.deeplearning4j.nn.conf.layers.NoParamLayer;
 public class PsiLayer extends NoParamLayer {
     private int blockSize;
     private int blockSizeSq;
-    private int nIn;
 
     public PsiLayer(Builder builder) {
         super(builder);

@@ -7,12 +7,10 @@ import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.util.ConvolutionUtils;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.autodiff.samediff.SameDiff;
-import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Conv2DConfig;
-import org.deeplearning4j.nn.weights.WeightInit;
-import org.nd4j.linalg.factory.Nd4j;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,15 +23,13 @@ public class Bottleneck extends SameDiffLayer {
     private int filterSize = 3;
     private boolean first;
     private Map<String, SDVariable> paramTable;
-    private Map<String, INDArray> params;
 
     public Bottleneck(int in_ch, int out_ch, int stride,
-                      int mult, WeightInit weightInit, boolean first) {
+                      int mult, boolean first) {
         this.in_ch = in_ch;
         this.out_ch = out_ch;
         this.stride = stride;
         this.mult = mult;
-        this.weightInit = weightInit;
         this.first = first;
     }
 
@@ -51,37 +47,9 @@ public class Bottleneck extends SameDiffLayer {
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
-
-        SDVariable conv1Weight = paramTable.get("conv1Weight");
-        SDVariable conv2Weight = paramTable.get("conv2Weight");
-        SDVariable conv3Weight = paramTable.get("conv3Weight");
-//        SDVariable mean1 = paramTable.get("mean1");
-//        SDVariable var1 = paramTable.get("var1");
-//        SDVariable gamma1 = paramTable.get("gamma1");
-//        SDVariable beta1 = paramTable.get("beta1");
-//        SDVariable mean2 = paramTable.get("mean2");
-//        SDVariable var2 = paramTable.get("var2");
-//        SDVariable gamma2 = paramTable.get("gamma2");
-//        SDVariable beta2 = paramTable.get("beta2");
-//        SDVariable mean3 = paramTable.get("mean3");
-//        SDVariable var3 = paramTable.get("var3");
-//        SDVariable gamma3 = paramTable.get("gamma3");
-//        SDVariable beta3 = paramTable.get("beta3");
-        sd.var(conv1Weight);
-        sd.var(conv2Weight);
-        sd.var(conv3Weight);
-//        sd.var(mean1);
-//        sd.var(var1);
-//        sd.var(gamma1);
-//        sd.var(beta1);
-//        sd.var(mean2);
-//        sd.var(var2);
-//        sd.var(gamma2);
-//        sd.var(beta2);
-//        sd.var(mean3);
-//        sd.var(var3);
-//        sd.var(gamma3);
-//        sd.var(beta3);
+        SDVariable conv1Weight = sd.var(paramTable.get("conv1Weight"));
+        SDVariable conv2Weight = sd.var(paramTable.get("conv2Weight"));
+        SDVariable conv3Weight = sd.var(paramTable.get("conv3Weight"));
         if (!this.first) {
             layerInput = sd.nn().relu("act0", layerInput, 0.);
         }
@@ -93,7 +61,6 @@ public class Bottleneck extends SameDiffLayer {
                 .sH(this.stride).sW(this.stride)
                 .build();
         SDVariable conv1 = sd.cnn().conv2d("conv1", new SDVariable[]{layerInput, conv1Weight}, c1);
-//        SDVariable bn1 = sd.nn().batchNorm("bn1", conv1, mean1, var1, gamma1, beta1, 1e-5, 1);
         SDVariable act1 = sd.nn().relu("act1", conv1, 0.);
         Conv2DConfig c2 = Conv2DConfig.builder()
                 .kH(this.filterSize).kW(this.filterSize)
@@ -103,7 +70,6 @@ public class Bottleneck extends SameDiffLayer {
                 .sH(1).sW(1)
                 .build();
         SDVariable conv2 = sd.cnn().conv2d("conv2", new SDVariable[]{act1, conv2Weight}, c2);
-//        SDVariable bn2 = sd.nn().batchNorm("bn2", conv2, mean2, var2, gamma2, beta2, 1e-5, 1);
         SDVariable act2 = sd.nn().relu("act2", conv2, 0.);
         Conv2DConfig c3 = Conv2DConfig.builder()
                 .kH(this.filterSize).kW(this.filterSize)
@@ -134,19 +100,6 @@ public class Bottleneck extends SameDiffLayer {
         int fanIn3 = (out_ch/mult) * filterSize * filterSize;
         int fanOut3 = out_ch * filterSize * filterSize;
         initWeights(fanIn3, fanOut3, WeightInit.XAVIER_UNIFORM, params.get("conv3Weight"));
-//        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("mean1"));
-//        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("var1"));
-//        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("gamma1"));
-//        initWeights(out_ch/mult, out_ch/mult, WeightInit.ZERO, params.get("beta1"));
-//        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("mean2"));
-//        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("var2"));
-//        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("gamma2"));
-//        initWeights(out_ch/mult, out_ch/mult, WeightInit.ZERO, params.get("beta2"));
-//        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("mean3"));
-//        initWeights(out_ch/mult, out_ch/mult, weightInit, params.get("var3"));
-//        initWeights(out_ch/mult, out_ch/mult, WeightInit.ONES, params.get("gamma3"));
-//        initWeights(out_ch/mult, out_ch/mult, WeightInit.ZERO, params.get("beta3"));
-        this.params = params;
     }
 
 
@@ -155,18 +108,6 @@ public class Bottleneck extends SameDiffLayer {
         params.addWeightParam("conv1Weight", filterSize, filterSize, in_ch, out_ch/mult);
         params.addWeightParam("conv2Weight", filterSize, filterSize, out_ch/mult, out_ch/mult);
         params.addWeightParam("conv3Weight", filterSize, filterSize, out_ch/mult, out_ch);
-//        params.addWeightParam("mean1", out_ch/mult);
-//        params.addWeightParam("var1", out_ch/mult);
-//        params.addWeightParam("gamma1", out_ch/mult);
-//        params.addBiasParam("beta1", out_ch/mult);
-//        params.addWeightParam("mean2", out_ch/mult);
-//        params.addWeightParam("var2", out_ch/mult);
-//        params.addWeightParam("gamma2", out_ch/mult);
-//        params.addBiasParam("beta2", out_ch/mult);
-//        params.addWeightParam("mean3", out_ch/mult);
-//        params.addWeightParam("var3", out_ch/mult);
-//        params.addWeightParam("gamma3", out_ch/mult);
-//        params.addBiasParam("beta3", out_ch/mult);
     }
 
     @Override
@@ -206,14 +147,11 @@ public class Bottleneck extends SameDiffLayer {
     public INDArray[] gradient(INDArray x, INDArray dy) {
         SameDiff sd = SameDiff.create();
         SDVariable layerInput = sd.var("input", x);
-        layerInput.isPlaceHolder();
         SDVariable outputGrad = sd.constant("outputGrad", dy);
         SDVariable output = defineLayer(sd, layerInput, this.paramTable, null);
         SDVariable mul = output.mul(outputGrad);
         String[] w_names = new String[]{"input", "conv1Weight", "conv2Weight", "conv3Weight"};
-        Map<String, INDArray> placeHolders = new HashMap();
-        placeHolders.put("input", x);
-        sd.execBackwards(placeHolders);
+        sd.execBackwards(Collections.EMPTY_MAP);
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
             grads[i] = sd.getGradForVariable(w_names[i]).getArr();

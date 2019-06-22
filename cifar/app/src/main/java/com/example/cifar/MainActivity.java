@@ -19,12 +19,16 @@ import org.datavec.image.transform.FlipImageTransform;
 import org.datavec.image.transform.ImageTransform;
 import org.datavec.image.transform.MultiImageTransform;
 import org.datavec.image.transform.RandomCropTransform;
+import org.deeplearning4j.common.resources.DL4JResources;
+import org.deeplearning4j.datasets.fetchers.DataSetType;
+import org.deeplearning4j.datasets.iterator.impl.Cifar10DataSetIterator;
 import org.deeplearning4j.nn.api.Trainable;
 import org.deeplearning4j.nn.updater.LayerUpdater;
 import org.deeplearning4j.nn.updater.UpdaterBlock;
 import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.util.ModelSerializer;
+import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
 import org.nd4j.linalg.api.memory.conf.WorkspaceConfiguration;
@@ -80,7 +84,6 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity
         implements ActivityCompat.OnRequestPermissionsResultCallback {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
-    private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -162,47 +165,27 @@ public class MainActivity extends AppCompatActivity
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 1; // number of epochs to perform
-                Random randNumGen = new Random(rngSeed);
                 int batchSize = 64;
                 int mult = 4;
-                double init_lr = 10;
+                double init_lr = 0.1;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
-                learningRateSchedule.put(40, init_lr * Math.pow(0.2, 1));
+                learningRateSchedule.put(60, init_lr * Math.pow(0.2, 1));
                 learningRateSchedule.put(120, init_lr * Math.pow(0.2, 2));
                 learningRateSchedule.put(160, init_lr * Math.pow(0.2, 3));
 
-                if (!new File(basePath + "/cifar").exists()) {
-                    Log.d("Data download", "Data downloaded from " + dataUrl);
-                    String localFilePath = basePath + "/cifar.tgz";
-                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
-                        DataUtilities.extractTarGz(localFilePath, basePath);
-                    }
+                File baseDir = new File(basePath);
+                if (!baseDir.exists()) {
+                    baseDir.mkdir();
                 }
-
-                // vectorization of train data
-                File trainData = new File(basePath + "/cifar/train");
-                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
-                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                trainRR.initialize(trainSplit);
-                DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
-                // pixel values from 0-255 to 0-1 (min-max scaling)
+                DL4JResources.setBaseDirectory(baseDir);
+                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
                 DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
                 scaler.fit(cifarTrain);
-//                ImageTransform transform = new MultiImageTransform(
-//                        new CropImageTransform(10),
-//                        new FlipImageTransform(1));
                 cifarTrain.setPreProcessor(scaler);
-
-                // vectorization of test data
-                File testData = new File(basePath + "/cifar/test");
-                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                testRR.initialize(testSplit);
-                DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
-                cifarTest.setPreProcessor(scaler); // same normalization for better results
+                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
+                cifarTest.setPreProcessor(scaler);
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
@@ -210,8 +193,7 @@ public class MainActivity extends AppCompatActivity
                         .weightInit(WeightInit.XAVIER_UNIFORM)
                         .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION,
                                 learningRateSchedule), 0.9))
-                        .l1(1e-7)
-                        .l2(5e-5);
+                        .l2(5e-4);
                 if (half_precision) {
                     config.dataType(DataType.HALF);
                 }
@@ -250,12 +232,16 @@ public class MainActivity extends AppCompatActivity
                     }
                 }
 
-                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
-                        WeightInit.XAVIER);
+                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum);
+
+                LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
+                        .activation(Activation.SOFTMAX)
+                        .build();
 
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
-                        .setOutputs( "outputProb", "merge");
+                        .addLayer("output", lossLayer, "outputProb")
+                        .setOutputs( "output", "merge");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -275,12 +261,19 @@ public class MainActivity extends AppCompatActivity
                             DataSet data = cifarTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
+
                             long StartTime = System.nanoTime();
-                            INDArray merge = model.output(false, false, features)[1];
+                            INDArray[] outputs = model.output(false, false, features);
+                            INDArray output = outputs[0];
+                            INDArray merge = outputs[1];
                             long EndTime = System.nanoTime();
                             double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("forward time", String.valueOf(elapsedTimeInSecond));
                             Log.d("output", "finished forward iter " + i);
+
+                            Evaluation eval = new Evaluation(10);
+                            eval.eval(label, output);
+                            Log.d("accuracy", eval.stats());
 
                             StartTime = System.nanoTime();
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
@@ -306,9 +299,7 @@ public class MainActivity extends AppCompatActivity
                         }
                     }
                 } else {
-                    for(int l=0; l <= numEpochs; l++) {
-                        model.fit(cifarTrain);
-                    }
+                    model.fit(cifarTrain, numEpochs);
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();

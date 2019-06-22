@@ -2,7 +2,6 @@ package com.example.cifar;
 
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.nd4j.linalg.api.buffer.DataType;
-import org.nd4j.linalg.api.ndarray.INDArrayStatistics;
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -10,12 +9,8 @@ import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.nd4j.linalg.primitives.Pair;
-
-import android.text.InputType;
-import android.util.Log;
-
-
 import org.deeplearning4j.nn.layers.AbstractLayer;
+
 public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
     protected int blockSize;
 
@@ -51,8 +46,6 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
         INDArray output = Nd4j.stack(1, stack);
         output = output.permute(0, 2, 1, 3);
         output = output.permute(0, 3, 1, 2);
-//        INDArray inverse = inverse(output, this.blockSize);
-//        inverse.eq(input);
         long[] outShape = output.shape();
         INDArray out = workspaceMgr.create(ArrayType.ACTIVATIONS, this.dataType, outShape);
         out.assign(output);
@@ -75,7 +68,6 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
         epsilonNd = workspaceMgr.leverageTo(ArrayType.ACTIVATION_GRAD, epsilonNd);
         return new Pair<>(retGradient, epsilonNd);
     }
-
 
     public static INDArray inverse(INDArray in, int blockSize) {
         long blockSizeSq = blockSize * blockSize;
@@ -102,5 +94,4 @@ public class PsiLayerImpl extends AbstractLayer<PsiLayer> {
         output = output.permute(0, 3, 1, 2);
         return output;
     }
-
 }
