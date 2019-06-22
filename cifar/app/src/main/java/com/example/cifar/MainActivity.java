@@ -88,7 +88,7 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity
         implements ActivityCompat.OnRequestPermissionsResultCallback {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
-    private static final boolean manual_gradients = true;
+    private static final boolean manual_gradients = false;
     private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
@@ -158,7 +158,7 @@ public class MainActivity extends AppCompatActivity
         protected String doInBackground(String... params) {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{2, 2, 2};
+                int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -171,7 +171,7 @@ public class MainActivity extends AppCompatActivity
                 int numEpochs = 1; // number of epochs to perform
                 int batchSize = 64;
                 int mult = 4;
-                double init_lr = 0.1;
+                double init_lr = 10;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -196,9 +196,7 @@ public class MainActivity extends AppCompatActivity
                         .activation(Activation.IDENTITY)
                         .weightInit(WeightInit.XAVIER_UNIFORM)
                         .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION,
-                                learningRateSchedule), 0.9))
-                        .l1(1e-7)
-                        .l2(5e-5);
+                                learningRateSchedule), 0.9));
                 if (half_precision) {
                     config.dataType(DataType.HALF);
                 }
@@ -267,76 +265,85 @@ public class MainActivity extends AppCompatActivity
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
 
-                            //Option#1: 用系统自带的方法算gradient，和Option#2选择一个comment掉
-                            model.setInputs(features);
-                            model.setLabels(label);
-                            model.computeGradientAndScore();
-                            INDArray grad = model.gradient().gradient();
-//                            INDArray dwGradient = model.gradient().getGradientFor("outputProb_denseWeight"); // 在这行设breakpoint,可以看每个variable对应的gradient
-                            Map<String, INDArray> gradList = model.gradient().gradientForVariable();
-                            for (Map.Entry<String, INDArray> entry : gradList.entrySet()) {
-                                gradient.setGradientFor(entry.getKey(), entry.getValue());
-                            }
-                            //Option#1结束
-
-
-                            // Option#2: 用我们的方法算gradient
-//                            long StartTime = System.nanoTime();
+                            long StartTime = System.nanoTime();
                             INDArray[] outputs = model.output(false, false, features);
-//                            INDArray merge = outputs[1];
+                            INDArray merge = outputs[1];
                             INDArray output = outputs[0];
-//
-//                            long EndTime = System.nanoTime();
-//                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-//                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-//                            Log.d("output", "finished forward iter " + i);
-//
-                            // print loss
-//                            SameDiff sd = probLayer.sd;
-//                            SDVariable labelInput = sd.var("label1", label);
-//                            labelInput.isPlaceHolder();
-//                            SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, sd.getVariable("outputDense"));
-//                            Log.d("loss", loss.toString());
-                            // evaluation
+                            long EndTime = System.nanoTime();
+                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
+                            Log.d("output", "finished forward iter " + i);
+
                             Evaluation eval = new Evaluation(10);
                             eval.eval(label, output);
                             Log.d("accuracy", eval.stats());
-//                            StartTime = System.nanoTime();
-//                            INDArray[] outputGradients = probLayer.gradient(merge, label);
-//                            INDArray dwGradient = outputGradients[1];
-//                            INDArray dbGradient = outputGradients[2];
-//                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-//                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
-//                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-//                            INDArray[] hiddens = Utils.splitHalf(merge);
-//                            HashMap<String, INDArray> gradientMap = computeGradient(hiddens[0], hiddens[1],
-//                                    nBlocks, blockList, lossGradient);
-//                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-//                                gradient.setGradientFor(entry.getKey(), entry.getValue());
-//                            }
-//                            Log.d("gradient", gradient.gradient().toString());
-//                            //Option#2结束
 
-
-
-
+                            StartTime = System.nanoTime();
+                            INDArray[] outputGradients = probLayer.gradient(merge, label);
+                            INDArray dwGradient = outputGradients[1];
+                            INDArray dbGradient = outputGradients[2];
+                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                            INDArray[] hiddens = Utils.splitHalf(merge);
+                            HashMap<String, INDArray> gradientMap = computeGradient(hiddens[0], hiddens[1],
+                                    nBlocks, blockList, lossGradient);
+                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
+                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            }
+                            Log.d("gradient", gradient.gradient().toString());
 
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
-//                            Log.d("gradient", gradient.gradient().toString());
 //                            Log.d("label", label.toString());
                             model.params().subi(modelGradients);
-//                            EndTime = System.nanoTime();
-//                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-//                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+                            EndTime = System.nanoTime();
+                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
                             Log.d("output", "finished backward iter " + i);
 
                             i++;
                         }
                     }
                 } else {
-                    for(int l=0; l <= numEpochs; l++) {
-                        model.fit(cifarTrain);
+                    int i = 0;
+                    model.initGradientsView();
+                    INDArray modelGradients = model.getFlattenedGradients();
+                    Gradient gradient = new DefaultGradient(modelGradients);
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        while (cifarTrain.hasNext()) {
+                            Log.d("Iteration", "Running iter " + i);
+
+                            // fetch data
+                            DataSet data = cifarTrain.next();
+                            INDArray label = data.getLabels();
+                            INDArray features = data.getFeatures();
+
+                            // forward
+                            INDArray[] outputs = model.output(false, false, features);
+                            INDArray output = outputs[0];
+                            Log.d("output", "finished forward iter " + i);
+
+                            // evaluation
+                            Evaluation eval = new Evaluation(10);
+                            eval.eval(label, output);
+                            Log.d("accuracy", eval.stats());
+
+                            // backward
+                            model.setInputs(features);
+                            model.setLabels(label);
+                            model.computeGradientAndScore(); // calculate gradient
+                            Map<String, INDArray> gradList = model.gradient().gradientForVariable();  // fetch gradientList
+                            for (Map.Entry<String, INDArray> entry : gradList.entrySet()) {  // set gradient
+                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            }
+                            ComputationGraphUpdater optimizer = model.getUpdater();
+                            optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());  // update gradient
+                            model.params().subi(modelGradients); // TODO: 这行真的可以更新params吗
+
+                            Log.d("output", "finished backward iter " + i);
+                            i++;
+                        }
                     }
                 }
             } catch (Exception ex) {
