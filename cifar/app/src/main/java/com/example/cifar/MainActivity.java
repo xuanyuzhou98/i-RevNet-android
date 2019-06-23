@@ -40,7 +40,9 @@ import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerMinMaxScaler;
+import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.dataset.api.preprocessor.StandardizeStrategy;
+import org.nd4j.linalg.factory.Nd4jBackend;
 import org.nd4j.linalg.learning.NesterovsUpdater;
 import org.nd4j.linalg.learning.config.IUpdater;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
@@ -68,6 +70,7 @@ import org.nd4j.linalg.memory.MemoryManager;
 import org.nd4j.linalg.schedule.MapSchedule;
 import org.nd4j.linalg.schedule.ScheduleType;
 import org.nd4j.linalg.schedule.StepSchedule;
+import org.tensorflow.framework.DebugOptions;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -167,7 +170,7 @@ public class MainActivity extends AppCompatActivity
                 int numEpochs = 1; // number of epochs to perform
                 int batchSize = 64;
                 int mult = 4;
-                double init_lr = 0.1;
+                double init_lr = 6.4;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -181,11 +184,11 @@ public class MainActivity extends AppCompatActivity
                 }
                 DL4JResources.setBaseDirectory(baseDir);
                 Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
-                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-                scaler.fit(cifarTrain);
-                cifarTrain.setPreProcessor(scaler);
+                DataNormalization normalizer = new NormalizerStandardize();
+                normalizer.fit(cifarTrain);
+                cifarTrain.setPreProcessor(normalizer);
                 Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
-                cifarTest.setPreProcessor(scaler);
+                cifarTest.setPreProcessor(normalizer);
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)

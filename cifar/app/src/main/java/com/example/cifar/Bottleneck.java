@@ -23,6 +23,7 @@ public class Bottleneck extends SameDiffLayer {
     private int filterSize = 3;
     private boolean first;
     private Map<String, SDVariable> paramTable;
+    private SameDiff sd;
 
     public Bottleneck(int in_ch, int out_ch, int stride,
                       int mult, boolean first) {
@@ -47,9 +48,10 @@ public class Bottleneck extends SameDiffLayer {
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
-        SDVariable conv1Weight = sd.var(paramTable.get("conv1Weight"));
-        SDVariable conv2Weight = sd.var(paramTable.get("conv2Weight"));
-        SDVariable conv3Weight = sd.var(paramTable.get("conv3Weight"));
+        this.sd = sd;
+        SDVariable conv1Weight = paramTable.get("conv1Weight");
+        SDVariable conv2Weight = paramTable.get("conv2Weight");
+        SDVariable conv3Weight = paramTable.get("conv3Weight");
         if (!this.first) {
             layerInput = sd.nn().relu("act0", layerInput, 0.);
         }
@@ -129,10 +131,8 @@ public class Bottleneck extends SameDiffLayer {
      * @param x [N, Cin/2, H, W]. Input activation.
      */
     public INDArray forward(INDArray x) {
-        SameDiff sd = SameDiff.create();
-        SDVariable layerInput = sd.var("input", x);
+        SDVariable layerInput = sd.getVariable("input");
         layerInput.isPlaceHolder();
-        defineLayer(sd, layerInput, this.paramTable, null);
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
         INDArray btnkOut = sd.execSingle(placeHolders, "conv3");
@@ -145,13 +145,20 @@ public class Bottleneck extends SameDiffLayer {
      * @param dy [N, Cout/2, H, W]. Output gradient.
      */
     public INDArray[] gradient(INDArray x, INDArray dy) {
-        SameDiff sd = SameDiff.create();
-        SDVariable layerInput = sd.var("input", x);
-        SDVariable outputGrad = sd.constant("outputGrad", dy);
-        SDVariable output = defineLayer(sd, layerInput, this.paramTable, null);
-        SDVariable mul = output.mul(outputGrad);
+        SDVariable layerInput = sd.getVariable("input");
+        layerInput.isPlaceHolder();
+        if (!sd.hasVariable("outputGrad")) {
+            SDVariable outputGrad = sd.var("outputGrad", dy);
+            outputGrad.isPlaceHolder();
+            SDVariable mul = sd.getVariable("conv3").mul(outputGrad);
+            SDVariable loss = mul.sum();
+            loss.markAsLoss();
+        }
         String[] w_names = new String[]{"input", "conv1Weight", "conv2Weight", "conv3Weight"};
-        sd.execBackwards(Collections.EMPTY_MAP);
+        Map<String, INDArray> placeHolders = new HashMap();
+        placeHolders.put("input", x);
+        placeHolders.put("outputGrad", dy);
+        sd.execBackwards(placeHolders);
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
             grads[i] = sd.getGradForVariable(w_names[i]).getArr();
