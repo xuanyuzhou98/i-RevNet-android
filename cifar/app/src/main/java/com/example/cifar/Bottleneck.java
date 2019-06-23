@@ -23,7 +23,6 @@ public class Bottleneck extends SameDiffLayer {
     private int filterSize = 3;
     private boolean first;
     private Map<String, SDVariable> paramTable;
-    private SameDiff sd;
 
     public Bottleneck(int in_ch, int out_ch, int stride,
                       int mult, boolean first) {
@@ -48,10 +47,9 @@ public class Bottleneck extends SameDiffLayer {
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
-        this.sd = sd;
-        SDVariable conv1Weight = paramTable.get("conv1Weight");
-        SDVariable conv2Weight = paramTable.get("conv2Weight");
-        SDVariable conv3Weight = paramTable.get("conv3Weight");
+        SDVariable conv1Weight = sd.var(paramTable.get("conv1Weight"));
+        SDVariable conv2Weight = sd.var(paramTable.get("conv2Weight"));
+        SDVariable conv3Weight = sd.var(paramTable.get("conv3Weight"));
         if (!this.first) {
             layerInput = sd.nn().relu("act0", layerInput, 0.);
         }
@@ -88,6 +86,7 @@ public class Bottleneck extends SameDiffLayer {
      * This method is used to initialize the parameter.
      * For example, we are setting the bias parameter to 0, and using the specified DL4J weight initialization type
      * for the weights
+     *
      * @param params Map of parameters. These are the INDArrays corresponding to whatever you defined in the
      *               defineParameters method
      */
@@ -96,10 +95,10 @@ public class Bottleneck extends SameDiffLayer {
         int fanIn1 = in_ch * filterSize * filterSize;    // fan-in = num input feature maps * filter height * filter width
         int fanOut1 = (out_ch / mult) * filterSize * filterSize;
         initWeights(fanIn1, fanOut1, WeightInit.XAVIER_UNIFORM, params.get("conv1Weight"));
-        int fanIn2 = (out_ch/mult) * filterSize * filterSize;
-        int fanOut2 = (out_ch/mult) * filterSize * filterSize;
+        int fanIn2 = (out_ch / mult) * filterSize * filterSize;
+        int fanOut2 = (out_ch / mult) * filterSize * filterSize;
         initWeights(fanIn2, fanOut2, WeightInit.XAVIER_UNIFORM, params.get("conv2Weight"));
-        int fanIn3 = (out_ch/mult) * filterSize * filterSize;
+        int fanIn3 = (out_ch / mult) * filterSize * filterSize;
         int fanOut3 = out_ch * filterSize * filterSize;
         initWeights(fanIn3, fanOut3, WeightInit.XAVIER_UNIFORM, params.get("conv3Weight"));
     }
@@ -107,9 +106,9 @@ public class Bottleneck extends SameDiffLayer {
 
     @Override
     public void defineParameters(SDLayerParams params) {
-        params.addWeightParam("conv1Weight", filterSize, filterSize, in_ch, out_ch/mult);
-        params.addWeightParam("conv2Weight", filterSize, filterSize, out_ch/mult, out_ch/mult);
-        params.addWeightParam("conv3Weight", filterSize, filterSize, out_ch/mult, out_ch);
+        params.addWeightParam("conv1Weight", filterSize, filterSize, in_ch, out_ch / mult);
+        params.addWeightParam("conv2Weight", filterSize, filterSize, out_ch / mult, out_ch / mult);
+        params.addWeightParam("conv3Weight", filterSize, filterSize, out_ch / mult, out_ch);
     }
 
     @Override
@@ -128,11 +127,14 @@ public class Bottleneck extends SameDiffLayer {
 
     /**
      * Gradients without referring to the stored activation.
+     *
      * @param x [N, Cin/2, H, W]. Input activation.
      */
     public INDArray forward(INDArray x) {
-        SDVariable layerInput = sd.getVariable("input");
+        SameDiff sd = SameDiff.create();
+        SDVariable layerInput = sd.var("input", x);
         layerInput.isPlaceHolder();
+        defineLayer(sd, layerInput, this.paramTable, null);
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
         INDArray btnkOut = sd.execSingle(placeHolders, "conv3");
@@ -141,24 +143,18 @@ public class Bottleneck extends SameDiffLayer {
 
     /**
      * Gradients without referring to the stored activation.
-     * @param x [N, Cin/2, H, W]. Input activation.
+     *
+     * @param x  [N, Cin/2, H, W]. Input activation.
      * @param dy [N, Cout/2, H, W]. Output gradient.
      */
     public INDArray[] gradient(INDArray x, INDArray dy) {
-        SDVariable layerInput = sd.getVariable("input");
-        layerInput.isPlaceHolder();
-        if (!sd.hasVariable("outputGrad")) {
-            SDVariable outputGrad = sd.var("outputGrad", dy);
-            outputGrad.isPlaceHolder();
-            SDVariable mul = sd.getVariable("conv3").mul(outputGrad);
-            SDVariable loss = mul.sum();
-            loss.markAsLoss();
-        }
+        SameDiff sd = SameDiff.create();
+        SDVariable layerInput = sd.var("input", x);
+        SDVariable outputGrad = sd.constant("outputGrad", dy);
+        SDVariable output = defineLayer(sd, layerInput, this.paramTable, null);
+        SDVariable mul = output.mul(outputGrad);
         String[] w_names = new String[]{"input", "conv1Weight", "conv2Weight", "conv3Weight"};
-        Map<String, INDArray> placeHolders = new HashMap();
-        placeHolders.put("input", x);
-        placeHolders.put("outputGrad", dy);
-        sd.execBackwards(placeHolders);
+        sd.execBackwards(Collections.EMPTY_MAP);
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
             grads[i] = sd.getGradForVariable(w_names[i]).getArr();

@@ -9,11 +9,13 @@ import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Pair;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
 
+import org.bytedeco.opencv.presets.opencv_core;
 import org.datavec.image.transform.CropImageTransform;
 import org.datavec.image.transform.FlipImageTransform;
 import org.datavec.image.transform.ImageTransform;
@@ -157,11 +159,11 @@ public class MainActivity extends AppCompatActivity
         protected String doInBackground(String... params) {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{18, 18, 18};
+                int[] nBlocks = new int[]{2, 2, 2};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
-                int in_ch = channels * (int) Math.pow(2, init_ds);
+                int in_ch = channels * (int)Math.pow(2, init_ds);
                 int n = in_ch / 2;
                 int outputNum = 10; // number of output classes
                 final int numRows = 32;
@@ -183,20 +185,20 @@ public class MainActivity extends AppCompatActivity
                     baseDir.mkdir();
                 }
                 DL4JResources.setBaseDirectory(baseDir);
-                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
+                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
+                        DataSetType.TRAIN, null, rngSeed);
                 DataNormalization normalizer = new NormalizerStandardize();
                 normalizer.fit(cifarTrain);
                 cifarTrain.setPreProcessor(normalizer);
-                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
+                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
+                        DataSetType.TEST, null, rngSeed);
                 cifarTest.setPreProcessor(normalizer);
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
-                        .activation(Activation.IDENTITY)
-                        .weightInit(WeightInit.XAVIER_UNIFORM)
                         .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION,
                                 learningRateSchedule), 0.9))
-                        .l2(5e-4);
+                        .weightDecay(5e-4);
                 if (half_precision) {
                     config.dataType(DataType.HALF);
                 }
@@ -264,7 +266,11 @@ public class MainActivity extends AppCompatActivity
                             DataSet data = cifarTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
-
+//                            model.setInputs(features);
+//                            model.setLabels(label);
+//                            model.computeGradientAndScore();
+//                            INDArray grad = model.gradient().gradient();
+                            // Forward Pass
                             long StartTime = System.nanoTime();
                             INDArray[] outputs = model.output(false, false, features);
                             INDArray output = outputs[0];
@@ -274,23 +280,17 @@ public class MainActivity extends AppCompatActivity
                             Log.d("forward time", String.valueOf(elapsedTimeInSecond));
                             Log.d("output", "finished forward iter " + i);
 
-                            Evaluation eval = new Evaluation(10);
-                            eval.eval(label, output);
-                            Log.d("accuracy", eval.stats());
-
+                            // Backward Pass
                             StartTime = System.nanoTime();
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
                             INDArray dwGradient = outputGradients[1];
                             INDArray dbGradient = outputGradients[2];
-                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
                             INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
                             INDArray[] hiddens = Utils.splitHalf(merge);
-                            HashMap<String, INDArray> gradientMap = computeGradient(hiddens[0], hiddens[1],
+                            computeGradient(gradient, hiddens[0], hiddens[1],
                                     nBlocks, blockList, lossGradient);
-                            for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                                gradient.setGradientFor(entry.getKey(), entry.getValue());
-                            }
+                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             model.params().subi(modelGradients);
@@ -298,6 +298,11 @@ public class MainActivity extends AppCompatActivity
                             elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("backward time", String.valueOf(elapsedTimeInSecond));
                             Log.d("output", "finished backward iter " + i);
+
+                            // Evaluation
+                            Evaluation eval = new Evaluation(10);
+                            eval.eval(label, output);
+                            Log.d("accuracy", eval.stats());
                             i++;
                         }
                     }
@@ -311,13 +316,12 @@ public class MainActivity extends AppCompatActivity
         }
 
             // This function computes the total gradient of the graph without referring to the stored activation
-        protected HashMap<String, INDArray> computeGradient(INDArray y1, INDArray y2, int[] nBlocks,
+        protected void computeGradient(Gradient gradient, INDArray y1, INDArray y2, int[] nBlocks,
                                                             List<IRevBlock> blockList, INDArray[] lossGradient) {
-
-            HashMap<String, INDArray> gradsResult = new HashMap<>();
             INDArray dy1 = lossGradient[0];
             INDArray dy2 = lossGradient[1];
             int cnt = blockList.size() - 1;
+            Pair<String, INDArray>[] grads = new Pair[blockList.size() * 3];
             // from the last layer to the first layer
             for (int i = nBlocks.length - 1; i >= 0; i -= 1) { // for each stage
                 for (int j = nBlocks[i] - 1; j >= 0; j -= 1) { // for each iRevBlock
@@ -332,13 +336,15 @@ public class MainActivity extends AppCompatActivity
                     String prefix = iRev.getPrefix();
                     dy1 = gradients.get(0);
                     dy2 = gradients.get(1);
-                    gradsResult.put(prefix + "btnk_conv1Weight", gradients.get(2));
-                    gradsResult.put(prefix + "btnk_conv2Weight", gradients.get(3));
-                    gradsResult.put(prefix + "btnk_conv3Weight", gradients.get(4));
+                    grads[(cnt+1) * 3 - 3] = new Pair(prefix + "btnk_conv1Weight", gradients.get(2));
+                    grads[(cnt+1) * 3 - 2] = new Pair(prefix + "btnk_conv2Weight", gradients.get(3));
+                    grads[(cnt+1) * 3 - 1] = new Pair(prefix + "btnk_conv3Weight", gradients.get(4));
                     cnt -= 1;
                 }
             }
-            return gradsResult;
+            for (Pair<String, INDArray> grad : grads) {
+                gradient.setGradientFor(grad.first, grad.second);
+            }
         }
     }
 }
