@@ -172,7 +172,7 @@ public class MainActivity extends AppCompatActivity
                 int numEpochs = 1; // number of epochs to perform
                 int batchSize = 64;
                 int mult = 4;
-                double init_lr = 6.4;
+                double init_lr = 0.1;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -266,10 +266,6 @@ public class MainActivity extends AppCompatActivity
                             DataSet data = cifarTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
-//                            model.setInputs(features);
-//                            model.setLabels(label);
-//                            model.computeGradientAndScore();
-//                            INDArray grad = model.gradient().gradient();
                             // Forward Pass
                             long StartTime = System.nanoTime();
                             INDArray[] outputs = model.output(false, false, features);
