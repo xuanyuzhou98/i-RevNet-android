@@ -51,6 +51,7 @@ import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.dataset.api.preprocessor.StandardizeStrategy;
 import org.nd4j.linalg.factory.Nd4jBackend;
 import org.nd4j.linalg.learning.NesterovsUpdater;
+import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.learning.config.IUpdater;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.datavec.image.loader.NativeImageLoader;
@@ -164,7 +165,7 @@ public class MainActivity extends AppCompatActivity
         protected String doInBackground(String... params) {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{18, 18, 18};
+                int[] nBlocks = new int[]{5, 5, 5};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -191,11 +192,11 @@ public class MainActivity extends AppCompatActivity
                 }
                 DL4JResources.setBaseDirectory(baseDir);
                 Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
-                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-                scaler.fit(cifarTrain);
-                cifarTrain.setPreProcessor(scaler);
+                DataNormalization norm = new NormalizerStandardize();
+                norm.fit(cifarTrain);
+                cifarTrain.setPreProcessor(norm);
                 Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
-                cifarTest.setPreProcessor(scaler); // same normalization for better results
+                cifarTest.setPreProcessor(norm); // same normalization for better results
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
