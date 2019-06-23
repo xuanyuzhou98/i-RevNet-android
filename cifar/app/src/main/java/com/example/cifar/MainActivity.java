@@ -44,8 +44,10 @@ import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerMinMaxScaler;
+import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.dataset.api.preprocessor.StandardizeStrategy;
 import org.nd4j.linalg.learning.NesterovsUpdater;
+import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.learning.config.IUpdater;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.datavec.image.loader.NativeImageLoader;
@@ -158,7 +160,7 @@ public class MainActivity extends AppCompatActivity
         protected String doInBackground(String... params) {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{18, 18, 18};
+                int[] nBlocks = new int[]{5, 5, 5};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -171,7 +173,7 @@ public class MainActivity extends AppCompatActivity
                 int numEpochs = 1; // number of epochs to perform
                 int batchSize = 64;
                 int mult = 4;
-                double init_lr = 10;
+                double init_lr = 0.001;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -185,18 +187,18 @@ public class MainActivity extends AppCompatActivity
                 }
                 DL4JResources.setBaseDirectory(baseDir);
                 Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
-                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-                scaler.fit(cifarTrain);
-                cifarTrain.setPreProcessor(scaler);
+                DataNormalization norm = new NormalizerStandardize();
+                norm.fit(cifarTrain);
+                cifarTrain.setPreProcessor(norm);
                 Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
-                cifarTest.setPreProcessor(scaler); // same normalization for better results
+                cifarTest.setPreProcessor(norm); // same normalization for better results
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
                         .activation(Activation.IDENTITY)
                         .weightInit(WeightInit.XAVIER_UNIFORM)
-                        .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION,
-                                learningRateSchedule), 0.9));
+                        .updater(new Adam(new MapSchedule(ScheduleType.ITERATION,
+                                learningRateSchedule)));
                 if (half_precision) {
                     config.dataType(DataType.HALF);
                 }
@@ -339,7 +341,7 @@ public class MainActivity extends AppCompatActivity
                             }
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());  // update gradient
-                            model.params().subi(modelGradients); // TODO: 这行真的可以更新params吗
+                            model.params().subi(modelGradients);
 
                             Log.d("output", "finished backward iter " + i);
                             i++;

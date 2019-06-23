@@ -8,6 +8,7 @@ import org.deeplearning4j.nn.conf.layers.samediff.SDLayerParams;
 import org.deeplearning4j.nn.conf.layers.samediff.SameDiffLayer;
 import org.deeplearning4j.nn.conf.layers.samediff.SameDiffOutputLayer;
 import org.deeplearning4j.nn.weights.WeightInit;
+import org.nd4j.autodiff.loss.LossReduce;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.linalg.api.buffer.DataType;
@@ -89,7 +90,8 @@ public class ProbLayer extends SameDiffLayer {
         if (!sd.hasVariable("label")) {
             SDVariable labelInput = sd.var("label", label);
             labelInput.isPlaceHolder();
-            SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, sd.getVariable("outputDense"));
+            SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput,
+                    sd.getVariable("outputDense"), LossReduce.NONE);
         }
         String[] w_names = new String[]{"input", "denseWeight", "denseBias"};
         Map<String, INDArray> placeHolders = new HashMap();
