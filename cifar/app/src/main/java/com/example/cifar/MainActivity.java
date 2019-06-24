@@ -173,7 +173,7 @@ public class MainActivity extends AppCompatActivity
                 int numEpochs = 1; // number of epochs to perform
                 int batchSize = 64;
                 int mult = 4;
-                double init_lr = 0.1;
+                double init_lr = 0.001;
                 // learning rate schedule
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
