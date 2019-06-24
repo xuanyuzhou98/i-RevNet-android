@@ -24,11 +24,13 @@ import org.datavec.image.transform.RandomCropTransform;
 import org.deeplearning4j.common.resources.DL4JResources;
 import org.deeplearning4j.datasets.fetchers.DataSetType;
 import org.deeplearning4j.datasets.iterator.impl.Cifar10DataSetIterator;
+import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
 import org.deeplearning4j.nn.api.Trainable;
 import org.deeplearning4j.nn.updater.LayerUpdater;
 import org.deeplearning4j.nn.updater.UpdaterBlock;
 import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.nn.workspace.ArrayType;
+import org.deeplearning4j.optimize.Solver;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
@@ -169,10 +171,10 @@ public class MainActivity extends AppCompatActivity
                 final int numRows = 32;
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
-                int numEpochs = 1; // number of epochs to perform
-                int batchSize = 64;
+                int numEpochs = 10; // number of epochs to perform
+                int batchSize = 100;
                 int mult = 4;
-                double init_lr = 0.1;
+                double init_lr = 0.01;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -257,7 +259,8 @@ public class MainActivity extends AppCompatActivity
                 Log.d("Output", "start training");
                 if (manual_gradients) {
                     int i = 0;
-                    model.initGradientsView();
+                    Gradient gradient = new DefaultGradient();
+                    ComputationGraphUpdater updater = model.getUpdater();
                     for (int epoch = 0; epoch < numEpochs; epoch++) {
                         while (cifarTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
@@ -282,13 +285,11 @@ public class MainActivity extends AppCompatActivity
                             INDArray dbGradient = outputGradients[2];
                             INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
                             INDArray[] hiddens = Utils.splitHalf(merge);
-                            Gradient gradient = new DefaultGradient();
                             computeGradient(gradient, hiddens[0], hiddens[1],
                                     nBlocks, blockList, lossGradient);
                             gradient.setGradientFor("outputProb_denseWeight", dwGradient);
                             gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                            ComputationGraphUpdater optimizer = model.getUpdater();
-                            optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                            updater.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             model.params().subi(gradient.gradient());
                             EndTime = System.nanoTime();
                             elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
