@@ -159,7 +159,7 @@ public class MainActivity extends AppCompatActivity
         protected String doInBackground(String... params) {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{18, 18, 18};
+                int[] nBlocks = new int[]{2, 2, 2};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -258,14 +258,18 @@ public class MainActivity extends AppCompatActivity
                 if (manual_gradients) {
                     int i = 0;
                     model.initGradientsView();
-                    INDArray modelGradients = model.getFlattenedGradients();
-                    Gradient gradient = new DefaultGradient(modelGradients);
+                    Gradient gradient = new DefaultGradient();
                     for (int epoch = 0; epoch < numEpochs; epoch++) {
                         while (cifarTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
                             DataSet data = cifarTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
+
+//                            model.setInputs(features);
+//                            model.setLabels(label);
+//                            model.computeGradientAndScore();
+
                             // Forward Pass
                             long StartTime = System.nanoTime();
                             INDArray[] outputs = model.output(false, false, features);
@@ -289,7 +293,7 @@ public class MainActivity extends AppCompatActivity
                             gradient.setGradientFor("outputProb_denseBias", dbGradient);
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
-                            model.params().subi(modelGradients);
+                            model.params().subi(gradient.gradient());
                             EndTime = System.nanoTime();
                             elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("backward time", String.valueOf(elapsedTimeInSecond));
@@ -311,7 +315,7 @@ public class MainActivity extends AppCompatActivity
             return "";
         }
 
-            // This function computes the total gradient of the graph without referring to the stored activation
+        // This function computes the total gradient of the graph without referring to the stored activation
         protected void computeGradient(Gradient gradient, INDArray y1, INDArray y2, int[] nBlocks,
                                                             List<IRevBlock> blockList, INDArray[] lossGradient) {
             INDArray dy1 = lossGradient[0];
