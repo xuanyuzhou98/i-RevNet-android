@@ -159,7 +159,7 @@ public class MainActivity extends AppCompatActivity
         protected String doInBackground(String... params) {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{2, 2, 2};
+                int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -258,17 +258,12 @@ public class MainActivity extends AppCompatActivity
                 if (manual_gradients) {
                     int i = 0;
                     model.initGradientsView();
-                    Gradient gradient = new DefaultGradient();
                     for (int epoch = 0; epoch < numEpochs; epoch++) {
                         while (cifarTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
                             DataSet data = cifarTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
-
-//                            model.setInputs(features);
-//                            model.setLabels(label);
-//                            model.computeGradientAndScore();
 
                             // Forward Pass
                             long StartTime = System.nanoTime();
@@ -287,6 +282,7 @@ public class MainActivity extends AppCompatActivity
                             INDArray dbGradient = outputGradients[2];
                             INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
                             INDArray[] hiddens = Utils.splitHalf(merge);
+                            Gradient gradient = new DefaultGradient();
                             computeGradient(gradient, hiddens[0], hiddens[1],
                                     nBlocks, blockList, lossGradient);
                             gradient.setGradientFor("outputProb_denseWeight", dwGradient);
