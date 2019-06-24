@@ -88,7 +88,8 @@ import java.util.Random;
 
 public class MainActivity extends AppCompatActivity
         implements ActivityCompat.OnRequestPermissionsResultCallback {
-    private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
+    private static final String basePath = Environment.getExternalStorageDirectory() + "/mnist";
+    private static final String dataUrl = "http://github.com/myleott/mnist_png/raw/master/mnist_png.tar.gz";
     private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -173,26 +174,42 @@ public class MainActivity extends AppCompatActivity
                 int batchSize = 64;
                 int mult = 4;
                 double init_lr = 0.1;
-
+                // learning rate schedule
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
                 learningRateSchedule.put(60, init_lr * Math.pow(0.2, 1));
                 learningRateSchedule.put(120, init_lr * Math.pow(0.2, 2));
                 learningRateSchedule.put(160, init_lr * Math.pow(0.2, 3));
-
+                // download data
                 File baseDir = new File(basePath);
                 if (!baseDir.exists()) {
                     baseDir.mkdir();
                 }
-                DL4JResources.setBaseDirectory(baseDir);
-                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
-                        DataSetType.TRAIN, null, rngSeed);
+                if (!new File(basePath + "/mnist_png").exists()) {
+                    Log.d("Data download", "Data downloaded from " + dataUrl);
+                    String localFilePath = basePath + "/mnist_png.tar.gz";
+                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
+                        DataUtilities.extractTarGz(localFilePath, basePath);
+                    }
+                }
+                // load data
+                Random randNumGen = new Random(rngSeed);
+                File trainData = new File(basePath + "/mnist_png/training");
+                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
+                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                trainRR.initialize(trainSplit);
+                DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
+                File testData = new File(basePath + "/mnist_png/testing");
+                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
+                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                testRR.initialize(testSplit);
+                DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
+                // data preprocessing
                 DataNormalization normalizer = new NormalizerStandardize();
-                normalizer.fit(cifarTrain);
-                cifarTrain.setPreProcessor(normalizer);
-                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
-                        DataSetType.TEST, null, rngSeed);
-                cifarTest.setPreProcessor(normalizer);
+                normalizer.fit(mnistTrain);
+                mnistTrain.setPreProcessor(normalizer);
+                mnistTest.setPreProcessor(normalizer);
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
@@ -261,9 +278,9 @@ public class MainActivity extends AppCompatActivity
                     INDArray modelGradients = model.getFlattenedGradients();
                     Gradient gradient = new DefaultGradient(modelGradients);
                     for (int epoch = 0; epoch < numEpochs; epoch++) {
-                        while (cifarTrain.hasNext()) {
+                        while (mnistTrain.hasNext()) {
                             Log.d("Iteration", "Running iter " + i);
-                            DataSet data = cifarTrain.next();
+                            DataSet data = mnistTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
                             // Forward Pass
@@ -303,7 +320,7 @@ public class MainActivity extends AppCompatActivity
                         }
                     }
                 } else {
-                    model.fit(cifarTrain, numEpochs);
+                    model.fit(mnistTrain, numEpochs);
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
