@@ -25,10 +25,12 @@ import org.deeplearning4j.common.resources.DL4JResources;
 import org.deeplearning4j.datasets.fetchers.DataSetType;
 import org.deeplearning4j.datasets.iterator.impl.Cifar10DataSetIterator;
 import org.deeplearning4j.nn.api.Trainable;
+import org.deeplearning4j.nn.conf.graph.PreprocessorVertex;
 import org.deeplearning4j.nn.updater.LayerUpdater;
 import org.deeplearning4j.nn.updater.UpdaterBlock;
 import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.nn.workspace.ArrayType;
+import org.deeplearning4j.optimize.Solver;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
@@ -187,11 +189,17 @@ public class MainActivity extends AppCompatActivity
                 DL4JResources.setBaseDirectory(baseDir);
                 Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
                         DataSetType.TRAIN, null, rngSeed);
+                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+                scaler.fit(cifarTrain);
+                cifarTrain.setPreProcessor(scaler);
                 DataNormalization normalizer = new NormalizerStandardize();
                 normalizer.fit(cifarTrain);
                 cifarTrain.setPreProcessor(normalizer);
                 Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
                         DataSetType.TEST, null, rngSeed);
+                
+                scaler.fit(cifarTest);
+                cifarTest.setPreProcessor(scaler);
                 cifarTest.setPreProcessor(normalizer);
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
@@ -290,6 +298,7 @@ public class MainActivity extends AppCompatActivity
                             ComputationGraphUpdater optimizer = model.getUpdater();
                             optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             model.params().subi(gradient.gradient());
+                            //Solver solver = new Solver.Builder().configure(conf.getDefaultConfiguration()).build();
                             EndTime = System.nanoTime();
                             elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
                             Log.d("backward time", String.valueOf(elapsedTimeInSecond));
