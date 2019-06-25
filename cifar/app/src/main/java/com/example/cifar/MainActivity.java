@@ -175,7 +175,7 @@ public class MainActivity extends AppCompatActivity
                 int numEpochs = 10; // number of epochs to perform
                 int batchSize = 100;
                 int mult = 4;
-                double init_lr = 0.001;
+                double init_lr = 1e-4;
                 // learning rate schedule
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -208,10 +208,10 @@ public class MainActivity extends AppCompatActivity
                 testRR.initialize(testSplit);
                 DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
                 // data preprocessing
-                DataNormalization normalizer = new NormalizerStandardize();
-                normalizer.fit(mnistTrain);
-                mnistTrain.setPreProcessor(normalizer);
-                mnistTest.setPreProcessor(normalizer);
+                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
+                scaler.fit(mnistTrain);
+                mnistTrain.setPreProcessor(scaler);
+                mnistTest.setPreProcessor(scaler);
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
@@ -284,7 +284,7 @@ public class MainActivity extends AppCompatActivity
                             DataSet data = mnistTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
-                            // Pad features from Mnist() to Cifar's size(3*32*32)
+                            // Pad features from Mnist(1*28*28) to Cifar's size(3*32*32)
                             features = Nd4j.prepend(features, 2, 0, 2);
                             features = Nd4j.append(features, 2, 0, 2);
                             features = Nd4j.prepend(features, 2, 0, 3);
@@ -327,7 +327,57 @@ public class MainActivity extends AppCompatActivity
                         }
                     }
                 } else {
-                    model.fit(mnistTrain, numEpochs);
+                    int i = 0;
+                    model.initGradientsView();
+                    INDArray modelGradients = model.getFlattenedGradients();
+                    Gradient gradient = new DefaultGradient(modelGradients);
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        while (mnistTrain.hasNext()) {
+                            Log.d("Iteration", "Running iter " + i);
+                            DataSet data = mnistTrain.next();
+                            INDArray label = data.getLabels();
+                            INDArray features = data.getFeatures();
+                            // Pad features from Mnist(1*28*28) to Cifar's size(3*32*32)
+                            features = Nd4j.prepend(features, 2, 0, 2);
+                            features = Nd4j.append(features, 2, 0, 2);
+                            features = Nd4j.prepend(features, 2, 0, 3);
+                            features = Nd4j.append(features, 2, 0, 3);
+                            features = features.repeat(1, 2);
+
+                            // Forward Pass
+                            long StartTime = System.nanoTime();
+                            INDArray[] outputs = model.output(false, false, features);
+                            INDArray output = outputs[0];
+                            INDArray merge = outputs[1];
+                            long EndTime = System.nanoTime();
+                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
+                            Log.d("output", "finished forward iter " + i);
+
+                            // Backward Pass
+                            StartTime = System.nanoTime();
+                            model.setInputs(features);
+                            model.setLabels(label);
+                            model.computeGradientAndScore(); // calculate gradient
+                            Map<String, INDArray> gradList = model.gradient().gradientForVariable();  // fetch gradientList
+                            for (Map.Entry<String, INDArray> entry : gradList.entrySet()) {  // set gradient
+                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            }
+                            ComputationGraphUpdater optimizer = model.getUpdater();
+                            optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());  // update gradient
+                            model.params().subi(modelGradients);
+                            EndTime = System.nanoTime();
+                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+                            Log.d("output", "finished backward iter " + i);
+
+                            // Evaluation
+                            Evaluation eval = new Evaluation(10);
+                            eval.eval(label, output);
+                            Log.d("accuracy", eval.stats());
+                            i++;
+                        }
+                    }
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
