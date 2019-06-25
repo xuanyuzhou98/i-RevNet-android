@@ -285,13 +285,11 @@ public class MainActivity extends AppCompatActivity
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
                             // Pad features from Mnist() to Cifar's size(3*32*32)
-                            INDArray zeros1 = Nd4j.zeros(batchSize, 1, numRows, numColumns);
-                            INDArray zeros2 = Nd4j.zeros(batchSize, 1, numRows, numColumns);
                             features = Nd4j.prepend(features, 2, 0, 2);
                             features = Nd4j.append(features, 2, 0, 2);
                             features = Nd4j.prepend(features, 2, 0, 3);
                             features = Nd4j.append(features, 2, 0, 3);
-                            features = Nd4j.concat(1, features, zeros1, zeros2);
+                            features = features.repeat(1, 2);
 
                             // Forward Pass
                             long StartTime = System.nanoTime();
