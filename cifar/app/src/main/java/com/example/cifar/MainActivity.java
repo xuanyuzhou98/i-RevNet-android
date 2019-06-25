@@ -31,6 +31,7 @@ import org.deeplearning4j.nn.updater.UpdaterBlock;
 import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.optimize.Solver;
+import org.deeplearning4j.optimize.api.TrainingListener;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
@@ -43,6 +44,7 @@ import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
+import org.nd4j.linalg.dataset.api.MultiDataSet;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerMinMaxScaler;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.dataset.api.preprocessor.StandardizeStrategy;
@@ -162,7 +164,7 @@ public class MainActivity extends AppCompatActivity
         protected String doInBackground(String... params) {
             try{
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{2, 2, 2};
+                int[] nBlocks = new int[]{1, 0, 0};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -173,7 +175,7 @@ public class MainActivity extends AppCompatActivity
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
                 int numEpochs = 10; // number of epochs to perform
-                int batchSize = 100;
+                int batchSize = 32;
                 int mult = 4;
                 double init_lr = 1e-4;
                 // learning rate schedule
@@ -256,7 +258,9 @@ public class MainActivity extends AppCompatActivity
                     }
                 }
 
-                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum);
+//                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum);
+                // TODO
+                ProbLayer probLayer = new ProbLayer(nChannels[0] * 2, outputNum);
 
                 LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                         .activation(Activation.SOFTMAX)
@@ -265,13 +269,17 @@ public class MainActivity extends AppCompatActivity
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
                         .addLayer("output", lossLayer, "outputProb")
-                        .setOutputs( "output", "merge");
+//                        .setOutputs( "output", "merge");
+                        // TODO
+                        .setOutputs( "output");
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
                 model.init();
                 MemoryManager mg = Nd4j.getMemoryManager();
                 mg.togglePeriodicGc(true);
+                TrainingListener listener = new ScoreIterationListener(1);
+                model.setListeners(listener);
 
                 Log.d("Output", "start training");
                 if (manual_gradients) {
@@ -327,58 +335,29 @@ public class MainActivity extends AppCompatActivity
                         }
                     }
                 } else {
-                    model.fit(mnistTrain, numEpochs);
-//                    int i = 0;
-//                    model.initGradientsView();
-//                    INDArray modelGradients = model.getFlattenedGradients();
-//                    Gradient gradient = new DefaultGradient(modelGradients);
-//                    for (int epoch = 0; epoch < numEpochs; epoch++) {
-//                        while (mnistTrain.hasNext()) {
-//                            Log.d("Iteration", "Running iter " + i);
-//                            DataSet data = mnistTrain.next();
-//                            INDArray label = data.getLabels();
-//                            INDArray features = data.getFeatures();
-//                            // Pad features from Mnist(1*28*28) to Cifar's size(3*32*32)
-//                            features = Nd4j.prepend(features, 2, 0, 2);
-//                            features = Nd4j.append(features, 2, 0, 2);
-//                            features = Nd4j.prepend(features, 2, 0, 3);
-//                            features = Nd4j.append(features, 2, 0, 3);
-//                            features = Nd4j.concat(1, features, features.dup(), features.dup());
-//
-//                            // Forward Pass
-//                            long StartTime = System.nanoTime();
-//                            INDArray[] outputs = model.output(false, false, features);
-//                            INDArray output = outputs[0];
-//                            INDArray merge = outputs[1];
-//                            long EndTime = System.nanoTime();
-//                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-//                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-//                            Log.d("output", "finished forward iter " + i);
-//
-//                            // Backward Pass
-//                            StartTime = System.nanoTime();
-//                            model.setInputs(features);
-//                            model.setLabels(label);
-//                            model.computeGradientAndScore(); // calculate gradient
-//                            Map<String, INDArray> gradList = model.gradient().gradientForVariable();  // fetch gradientList
-//                            for (Map.Entry<String, INDArray> entry : gradList.entrySet()) {  // set gradient
-//                                gradient.setGradientFor(entry.getKey(), entry.getValue());
-//                            }
-//                            ComputationGraphUpdater optimizer = model.getUpdater();
-//                            optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());  // update gradient
-//                            model.params().subi(modelGradients);
-//                            EndTime = System.nanoTime();
-//                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-//                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-//                            Log.d("output", "finished backward iter " + i);
-//
-//                            // Evaluation
-//                            Evaluation eval = new Evaluation(10);
-//                            eval.eval(label, output);
-//                            Log.d("accuracy", eval.stats());
-//                            i++;
-//                        }
-//                    }
+                    int i = 0;
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        Log.d("Model fit", "Epoch " + epoch);
+                        while (mnistTrain.hasNext()) {
+                            Log.d("Model fit", "Iter " + i);
+                            DataSet data = mnistTrain.next();
+                            INDArray[] labels = new INDArray[]{data.getLabels()};
+                            INDArray feature = data.getFeatures();
+                            // Pad features from Mnist(1*28*28) to Cifar's size(3*32*32)
+                            feature = Nd4j.prepend(feature, 2, 0, 2);
+                            feature = Nd4j.append(feature, 2, 0, 2);
+                            feature = Nd4j.prepend(feature, 2, 0, 3);
+                            feature = Nd4j.append(feature, 2, 0, 3);
+                            feature = Nd4j.concat(1, feature, feature.dup(), feature.dup());
+                            INDArray[] features = new INDArray[]{feature};
+                            // Masks should be null so no appending
+                            INDArray[] featureMasks = new INDArray[]{data.getFeaturesMaskArray()};
+                            INDArray[] labelMasks = new INDArray[]{data.getLabelsMaskArray()};
+                            model.fit(features, labels, featureMasks, labelMasks);
+                            Log.d("Model fit", "Score " + model.score());
+                            i++;
+                        }
+                    }
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
