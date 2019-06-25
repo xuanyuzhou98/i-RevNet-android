@@ -85,7 +85,7 @@ public class ProbLayer extends SameDiffLayer {
         SDVariable layerInput = sd.var("input", x);
         SDVariable labelInput = sd.constant("label", label);
         SDVariable outputDense = defineLayer(sd, layerInput, paramTable, null);
-        SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, outputDense);
+        SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, outputDense, LossReduce.NONE);
         sd.execBackwards(Collections.EMPTY_MAP);
         Log.d("loss:", loss.eval().toString());
         String[] w_names = new String[]{"input", "denseWeight", "denseBias"};
