@@ -92,7 +92,7 @@ public class MainActivity extends AppCompatActivity
         implements ActivityCompat.OnRequestPermissionsResultCallback {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/mnist";
     private static final String dataUrl = "http://github.com/myleott/mnist_png/raw/master/mnist_png.tar.gz";
-    private static final boolean manual_gradients = true;
+    private static final boolean manual_gradients = false;
     private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
@@ -185,7 +185,7 @@ public class MainActivity extends AppCompatActivity
                 // download data
                 File baseDir = new File(basePath);
                 if (!baseDir.exists()) {
-                    baseDir.mkdir();
+                    baseDir.mkdirs();
                 }
                 if (!new File(basePath + "/mnist_png").exists()) {
                     Log.d("Data download", "Data downloaded from " + dataUrl);
@@ -289,7 +289,7 @@ public class MainActivity extends AppCompatActivity
                             features = Nd4j.append(features, 2, 0, 2);
                             features = Nd4j.prepend(features, 2, 0, 3);
                             features = Nd4j.append(features, 2, 0, 3);
-                            features = features.repeat(1, 2);
+                            features = Nd4j.concat(1, features, features.dup(), features.dup());
 
                             // Forward Pass
                             long StartTime = System.nanoTime();
@@ -327,57 +327,58 @@ public class MainActivity extends AppCompatActivity
                         }
                     }
                 } else {
-                    int i = 0;
-                    model.initGradientsView();
-                    INDArray modelGradients = model.getFlattenedGradients();
-                    Gradient gradient = new DefaultGradient(modelGradients);
-                    for (int epoch = 0; epoch < numEpochs; epoch++) {
-                        while (mnistTrain.hasNext()) {
-                            Log.d("Iteration", "Running iter " + i);
-                            DataSet data = mnistTrain.next();
-                            INDArray label = data.getLabels();
-                            INDArray features = data.getFeatures();
-                            // Pad features from Mnist(1*28*28) to Cifar's size(3*32*32)
-                            features = Nd4j.prepend(features, 2, 0, 2);
-                            features = Nd4j.append(features, 2, 0, 2);
-                            features = Nd4j.prepend(features, 2, 0, 3);
-                            features = Nd4j.append(features, 2, 0, 3);
-                            features = features.repeat(1, 2);
-
-                            // Forward Pass
-                            long StartTime = System.nanoTime();
-                            INDArray[] outputs = model.output(false, false, features);
-                            INDArray output = outputs[0];
-                            INDArray merge = outputs[1];
-                            long EndTime = System.nanoTime();
-                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished forward iter " + i);
-
-                            // Backward Pass
-                            StartTime = System.nanoTime();
-                            model.setInputs(features);
-                            model.setLabels(label);
-                            model.computeGradientAndScore(); // calculate gradient
-                            Map<String, INDArray> gradList = model.gradient().gradientForVariable();  // fetch gradientList
-                            for (Map.Entry<String, INDArray> entry : gradList.entrySet()) {  // set gradient
-                                gradient.setGradientFor(entry.getKey(), entry.getValue());
-                            }
-                            ComputationGraphUpdater optimizer = model.getUpdater();
-                            optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());  // update gradient
-                            model.params().subi(modelGradients);
-                            EndTime = System.nanoTime();
-                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished backward iter " + i);
-
-                            // Evaluation
-                            Evaluation eval = new Evaluation(10);
-                            eval.eval(label, output);
-                            Log.d("accuracy", eval.stats());
-                            i++;
-                        }
-                    }
+                    model.fit(mnistTrain, numEpochs);
+//                    int i = 0;
+//                    model.initGradientsView();
+//                    INDArray modelGradients = model.getFlattenedGradients();
+//                    Gradient gradient = new DefaultGradient(modelGradients);
+//                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+//                        while (mnistTrain.hasNext()) {
+//                            Log.d("Iteration", "Running iter " + i);
+//                            DataSet data = mnistTrain.next();
+//                            INDArray label = data.getLabels();
+//                            INDArray features = data.getFeatures();
+//                            // Pad features from Mnist(1*28*28) to Cifar's size(3*32*32)
+//                            features = Nd4j.prepend(features, 2, 0, 2);
+//                            features = Nd4j.append(features, 2, 0, 2);
+//                            features = Nd4j.prepend(features, 2, 0, 3);
+//                            features = Nd4j.append(features, 2, 0, 3);
+//                            features = Nd4j.concat(1, features, features.dup(), features.dup());
+//
+//                            // Forward Pass
+//                            long StartTime = System.nanoTime();
+//                            INDArray[] outputs = model.output(false, false, features);
+//                            INDArray output = outputs[0];
+//                            INDArray merge = outputs[1];
+//                            long EndTime = System.nanoTime();
+//                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+//                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
+//                            Log.d("output", "finished forward iter " + i);
+//
+//                            // Backward Pass
+//                            StartTime = System.nanoTime();
+//                            model.setInputs(features);
+//                            model.setLabels(label);
+//                            model.computeGradientAndScore(); // calculate gradient
+//                            Map<String, INDArray> gradList = model.gradient().gradientForVariable();  // fetch gradientList
+//                            for (Map.Entry<String, INDArray> entry : gradList.entrySet()) {  // set gradient
+//                                gradient.setGradientFor(entry.getKey(), entry.getValue());
+//                            }
+//                            ComputationGraphUpdater optimizer = model.getUpdater();
+//                            optimizer.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());  // update gradient
+//                            model.params().subi(modelGradients);
+//                            EndTime = System.nanoTime();
+//                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+//                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
+//                            Log.d("output", "finished backward iter " + i);
+//
+//                            // Evaluation
+//                            Evaluation eval = new Evaluation(10);
+//                            eval.eval(label, output);
+//                            Log.d("accuracy", eval.stats());
+//                            i++;
+//                        }
+//                    }
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
