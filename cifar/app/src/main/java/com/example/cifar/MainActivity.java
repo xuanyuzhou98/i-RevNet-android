@@ -199,12 +199,12 @@ public class MainActivity extends AppCompatActivity
                 File trainData = new File(basePath + "/mnist_png/training");
                 FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
                 ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
-                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                ImageRecordReader trainRR = new ImageRecordReader(28, 28, 1, labelMaker);
                 trainRR.initialize(trainSplit);
                 DataSetIterator mnistTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
                 File testData = new File(basePath + "/mnist_png/testing");
                 FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
+                ImageRecordReader testRR = new ImageRecordReader(28, 28, 1, labelMaker);
                 testRR.initialize(testSplit);
                 DataSetIterator mnistTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
                 // data preprocessing
@@ -284,6 +284,14 @@ public class MainActivity extends AppCompatActivity
                             DataSet data = mnistTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
+                            // Pad features from Mnist() to Cifar's size(3*32*32)
+                            INDArray zeros1 = Nd4j.zeros(batchSize, 1, numRows, numColumns);
+                            INDArray zeros2 = Nd4j.zeros(batchSize, 1, numRows, numColumns);
+                            features = Nd4j.prepend(features, 2, 0, 2);
+                            features = Nd4j.append(features, 2, 0, 2);
+                            features = Nd4j.prepend(features, 2, 0, 3);
+                            features = Nd4j.append(features, 2, 0, 3);
+                            features = Nd4j.concat(1, features, zeros1, zeros2);
 
                             // Forward Pass
                             long StartTime = System.nanoTime();
