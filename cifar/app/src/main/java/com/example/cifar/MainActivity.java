@@ -171,7 +171,7 @@ public class MainActivity extends AppCompatActivity
                 final int numRows = 32;
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
-                int numEpochs = 1000000; // number of epochs to perform
+                int numEpochs = 200; // number of epochs to perform
                 int batchSize = 128;
                 int mult = 4;
                 double init_lr = 0.1;
@@ -198,7 +198,7 @@ public class MainActivity extends AppCompatActivity
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
-                        .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION,
+                        .updater(new Nesterovs(new MapSchedule(ScheduleType.EPOCH,
                                 learningRateSchedule), 0.9))
                         .weightDecay(5e-4);
 
