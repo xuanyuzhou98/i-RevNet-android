@@ -22,7 +22,6 @@ public class Bottleneck extends SameDiffLayer {
     private int mult;
     private int filterSize = 3;
     private boolean first;
-    private SameDiff sd;
     private Map<String, SDVariable> paramTable;
 
     public Bottleneck(int in_ch, int out_ch, int stride,
@@ -132,8 +131,10 @@ public class Bottleneck extends SameDiffLayer {
      * @param x [N, Cin/2, H, W]. Input activation.
      */
     public INDArray forward(INDArray x) {
-        SDVariable layerInput = sd.getVariable("input");
+        SameDiff sd = SameDiff.create();
+        SDVariable layerInput = sd.var("input", x);
         layerInput.isPlaceHolder();
+        defineLayer(sd, layerInput, this.paramTable, null);
         Map<String, INDArray> placeHolders = new HashMap();
         placeHolders.put("input", x);
         INDArray btnkOut = sd.execSingle(placeHolders, "conv3");
@@ -152,6 +153,7 @@ public class Bottleneck extends SameDiffLayer {
         SDVariable outputGrad = sd.constant("outputGrad", dy);
         SDVariable output = defineLayer(sd, layerInput, this.paramTable, null);
         SDVariable mul = output.mul(outputGrad);
+        mul.markAsLoss();
         String[] w_names = new String[]{"input", "conv1Weight", "conv2Weight", "conv3Weight"};
         sd.execBackwards(Collections.EMPTY_MAP);
         INDArray[] grads = new INDArray[w_names.length];

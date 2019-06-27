@@ -32,15 +32,12 @@ import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
 import org.deeplearning4j.nn.workspace.ArrayType;
 import org.deeplearning4j.optimize.Solver;
 import org.deeplearning4j.util.ModelSerializer;
-import org.nd4j.autodiff.samediff.SDVariable;
-import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
 import org.nd4j.linalg.api.memory.MemoryWorkspace;
 import org.nd4j.linalg.api.memory.conf.WorkspaceConfiguration;
 import org.nd4j.linalg.api.memory.enums.AllocationPolicy;
 import org.nd4j.linalg.api.memory.enums.LearningPolicy;
-import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Pooling2DConfig;
 import org.nd4j.linalg.dataset.DataSet;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
@@ -51,7 +48,6 @@ import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.dataset.api.preprocessor.StandardizeStrategy;
 import org.nd4j.linalg.factory.Nd4jBackend;
 import org.nd4j.linalg.learning.NesterovsUpdater;
-import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.learning.config.IUpdater;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.datavec.image.loader.NativeImageLoader;
@@ -95,7 +91,7 @@ import java.util.Random;
 public class MainActivity extends AppCompatActivity
         implements ActivityCompat.OnRequestPermissionsResultCallback {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
-    private static final boolean manual_gradients = false;
+    private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
@@ -163,22 +159,22 @@ public class MainActivity extends AppCompatActivity
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            try{
+            try {
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{5, 5, 5};
+                int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
-                int in_ch = channels * (int)Math.pow(2, init_ds);
+                int in_ch = channels * (int) Math.pow(2, init_ds);
                 int n = in_ch / 2;
                 int outputNum = 10; // number of output classes
                 final int numRows = 32;
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
-                int numEpochs = 10; // number of epochs to perform
+                int numEpochs = 1000000; // number of epochs to perform
                 int batchSize = 100;
                 int mult = 4;
-                double init_lr = 0.01;
+                double init_lr = 0.1;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -188,24 +184,28 @@ public class MainActivity extends AppCompatActivity
 
                 File baseDir = new File(basePath);
                 if (!baseDir.exists()) {
-                    baseDir.mkdirs();
+                    baseDir.mkdir();
                 }
                 DL4JResources.setBaseDirectory(baseDir);
-                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TRAIN, null, rngSeed);
-                DataNormalization norm = new NormalizerStandardize();
-                norm.fit(cifarTrain);
-                cifarTrain.setPreProcessor(norm);
-                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns}, DataSetType.TEST, null, rngSeed);
-                cifarTest.setPreProcessor(norm); // same normalization for better results
+                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
+                        DataSetType.TRAIN, null, rngSeed);
+                DataNormalization normalizer = new NormalizerStandardize();
+                normalizer.fit(cifarTrain);
+                cifarTrain.setPreProcessor(normalizer);
+                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
+                        DataSetType.TEST, null, rngSeed);
+                cifarTest.setPreProcessor(normalizer);
 
                 NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
                         .seed(rngSeed)
                         .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION,
                                 learningRateSchedule), 0.9))
                         .weightDecay(5e-4);
+
                 if (half_precision) {
                     config.dataType(DataType.HALF);
                 }
+
                 ComputationGraphConfiguration.GraphBuilder graph = config.graphBuilder();
 
                 graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels));
@@ -224,7 +224,7 @@ public class MainActivity extends AppCompatActivity
                 String input2 = "tilde_x0";
                 boolean first = true;
                 List<IRevBlock> blockList = new ArrayList<>();
-                for (int i = 0; i < 3; i++) { // for each stage
+                for (int i = 0; i < nBlocks.length; i++) { // for each stage
                     for (int j = 0; j < nBlocks[i]; j++) { // for each block in the stage
                         int stride = 1;
                         if (j == 0) {
@@ -242,7 +242,6 @@ public class MainActivity extends AppCompatActivity
                 }
 
                 ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum);
-
                 LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                         .activation(Activation.SOFTMAX)
                         .build();
@@ -250,7 +249,8 @@ public class MainActivity extends AppCompatActivity
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
                         .addLayer("outputProb", probLayer,"merge")
                         .addLayer("output", lossLayer, "outputProb")
-                        .setOutputs( "output");//周轩宇备注：如果要改成手动gradient，这里第0项要加merge
+                        .setOutputs("output", "merge");
+
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -258,29 +258,30 @@ public class MainActivity extends AppCompatActivity
                 MemoryManager mg = Nd4j.getMemoryManager();
                 mg.togglePeriodicGc(true);
 
-                Log.d("Output", "start training");
+                Log.d("Start training","start training");
                 if (manual_gradients) {
                     int i = 0;
-                    Gradient gradient = new DefaultGradient();
                     ComputationGraphUpdater updater = model.getUpdater();
                     for (int epoch = 0; epoch < numEpochs; epoch++) {
                         while (cifarTrain.hasNext()) {
-                            Log.d("Iteration", "Running iter " + i);
+                            Log.d("Running iter " , String.valueOf(i));
                             DataSet data = cifarTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
 
                             // Forward Pass
-                            long StartTime = System.nanoTime();
+//                        long StartTime = System.nanoTime();
                             INDArray[] outputs = model.output(false, false, features);
                             INDArray output = outputs[0];
                             INDArray merge = outputs[1];
-                            long EndTime = System.nanoTime();
-                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished forward iter " + i);
+//                        long EndTime = System.nanoTime();
+//                        double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+//                        log.info("forward time" + elapsedTimeInSecond);
+//                        log.info("finished forward iter " + i);
 
-                            StartTime = System.nanoTime();
+                            // Backward Pass
+//                        StartTime = System.nanoTime();
+                            Gradient gradient = new DefaultGradient();
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
                             INDArray dwGradient = outputGradients[1];
                             INDArray dbGradient = outputGradients[2];
@@ -288,35 +289,60 @@ public class MainActivity extends AppCompatActivity
                             INDArray[] hiddens = Utils.splitHalf(merge);
                             computeGradient(gradient, hiddens[0], hiddens[1],
                                     nBlocks, blockList, lossGradient);
-                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                            gradient.setGradientFor("outputProb_denseWeight", dwGradient, 'c');
                             gradient.setGradientFor("outputProb_denseBias", dbGradient);
                             updater.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             model.params().subi(gradient.gradient());
-                            EndTime = System.nanoTime();
-                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished backward iter " + i);
-
+//                        EndTime = System.nanoTime();
+//                        elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+//                        log.info("backward time" + elapsedTimeInSecond);
+//                        log.info("finished backward iter " + i);
                             // Evaluation
-                            Evaluation eval = new Evaluation(10);
+                            if (i % 50 == 0) {
+                                Log.d("Evaluate","Evaluate model....");
+                                Evaluation evalTest = new Evaluation(outputNum); //create an evaluation object with 10 possible classes
+                                while(cifarTest.hasNext()){
+                                    DataSet next = cifarTest.next();
+                                    INDArray out = model.output(false, false, next.getFeatures())[0]; //get the networks prediction
+                                    evalTest.eval(next.getLabels(), out); //check the prediction against the true class
+                                }
+                                //Since we used global variables to store the classification results, no need to return
+                                //a results string. If the results were returned here they would be passed to onPostExecute.
+                                Log.d("Eval test", evalTest.stats());
+                            }
+                            Evaluation eval = new Evaluation(outputNum);
                             eval.eval(label, output);
-                            Log.d("accuracy", eval.stats());
+                            Log.d("Eval", eval.stats());
                             i++;
                         }
                     }
                 } else {
-                    model.fit(cifarTrain, numEpochs);
+                    int i = 0;
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        Log.d("Model fit Epoch ", String.valueOf(epoch));
+                        while (cifarTrain.hasNext()) {
+                            Log.d("Model fit Iter ", String.valueOf(i));
+                            DataSet data = cifarTrain.next();
+                            INDArray[] labels = new INDArray[]{data.getLabels()};
+                            INDArray[] features = new INDArray[]{data.getFeatures()};
+                            // Masks should be null so no appending
+                            INDArray[] featureMasks = new INDArray[]{data.getFeaturesMaskArray()};
+                            INDArray[] labelMasks = new INDArray[]{data.getLabelsMaskArray()};
+                            model.fit(features, labels, featureMasks, labelMasks);
+                            Log.d("Model fit Score " , String.valueOf(model.score()));
+                            i++;
+                        }
+                    }
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
-
             return "";
         }
 
         // This function computes the total gradient of the graph without referring to the stored activation
         protected void computeGradient(Gradient gradient, INDArray y1, INDArray y2, int[] nBlocks,
-                                                            List<IRevBlock> blockList, INDArray[] lossGradient) {
+                                              List<IRevBlock> blockList, INDArray[] lossGradient) {
             INDArray dy1 = lossGradient[0];
             INDArray dy2 = lossGradient[1];
             int cnt = blockList.size() - 1;
@@ -335,14 +361,14 @@ public class MainActivity extends AppCompatActivity
                     String prefix = iRev.getPrefix();
                     dy1 = gradients.get(0);
                     dy2 = gradients.get(1);
-                    grads[(cnt+1) * 3 - 3] = new Pair(prefix + "btnk_conv1Weight", gradients.get(2));
-                    grads[(cnt+1) * 3 - 2] = new Pair(prefix + "btnk_conv2Weight", gradients.get(3));
-                    grads[(cnt+1) * 3 - 1] = new Pair(prefix + "btnk_conv3Weight", gradients.get(4));
+                    grads[(cnt + 1) * 3 - 3] = new Pair(prefix + "btnk_conv1Weight", gradients.get(2));
+                    grads[(cnt + 1) * 3 - 2] = new Pair(prefix + "btnk_conv2Weight", gradients.get(3));
+                    grads[(cnt + 1) * 3 - 1] = new Pair(prefix + "btnk_conv3Weight", gradients.get(4));
                     cnt -= 1;
                 }
             }
             for (Pair<String, INDArray> grad : grads) {
-                gradient.setGradientFor(grad.first, grad.second);
+                gradient.setGradientFor(grad.first, grad.second, 'c');
             }
         }
     }

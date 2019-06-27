@@ -36,8 +36,8 @@ public class PermuteLayer extends SameDiffLayer {
     @Override
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
-       SDVariable output = layerInput.permute(0, this.axis1, this.axis2, this.axis3);
-       return output;
+        SDVariable output = layerInput.permute(0, this.axis1, this.axis2, this.axis3);
+        return output;
     }
 
     /**

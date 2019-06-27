@@ -1,7 +1,5 @@
 package com.example.cifar;
 
-import android.util.Log;
-
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.samediff.SDLayerParams;
 import org.deeplearning4j.nn.conf.layers.samediff.SameDiffLayer;
@@ -10,6 +8,8 @@ import org.nd4j.autodiff.loss.LossReduce;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Map;
@@ -19,6 +19,7 @@ public class ProbLayer extends SameDiffLayer {
     private int in_ch;
     private int out_ch;
     private Map<String, SDVariable> paramTable;
+    protected static final Logger log = LoggerFactory.getLogger(ProbLayer.class);
 
     public ProbLayer(int in_ch, int out_ch) {
         this.in_ch = in_ch;
@@ -57,8 +58,9 @@ public class ProbLayer extends SameDiffLayer {
      */
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
-        params.get("denseBias").assign(0);
         initWeights(in_ch, out_ch, WeightInit.XAVIER, params.get("denseWeight"));
+        initWeights(in_ch, out_ch, WeightInit.UNIFORM, params.get("denseBias"));
+
     }
 
 
@@ -87,7 +89,7 @@ public class ProbLayer extends SameDiffLayer {
         SDVariable outputDense = defineLayer(sd, layerInput, paramTable, null);
         SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, outputDense, LossReduce.NONE);
         sd.execBackwards(Collections.EMPTY_MAP);
-        Log.d("loss:", loss.eval().mean().toString());
+        log.info("loss: " + loss.eval().mean().toString());
         String[] w_names = new String[]{"input", "denseWeight", "denseBias"};
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {

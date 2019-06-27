@@ -33,11 +33,11 @@ public class IRevBlock {
                 mult, first);
         if (stride == 1 && pad != 0) {
             graphBuilder.addVertex(prefix + "merge", new MergeVertex(), input1, input2)
-                        .addLayer(prefix + "permute1", new PermuteLayer(0, 2, 1, 3), prefix + "merge") //injective padding
-                        .addLayer(prefix + "zeroPadding", new ZeroPaddingLayer(0, pad, 0, 0),prefix + "permute1")
-                        .addLayer(prefix + "permute2", new PermuteLayer(0, 2, 1, 3), prefix + "zeroPadding") //finish injective padding
-                        .addVertex(prefix + "x1", new SubsetVertexN(0, out_ch - 1), prefix + "permute2")
-                        .addVertex(prefix + "x2", new SubsetVertexN(out_ch, 2 * out_ch - 1), prefix + "permute2");
+                    .addLayer(prefix + "permute1", new PermuteLayer(0, 2, 1, 3), prefix + "merge") //injective padding
+                    .addLayer(prefix + "zeroPadding", new ZeroPaddingLayer(0, pad, 0, 0),prefix + "permute1")
+                    .addLayer(prefix + "permute2", new PermuteLayer(0, 2, 1, 3), prefix + "zeroPadding") //finish injective padding
+                    .addVertex(prefix + "x1", new SubsetVertexN(0, out_ch - 1), prefix + "permute2")
+                    .addVertex(prefix + "x2", new SubsetVertexN(out_ch, 2 * out_ch - 1), prefix + "permute2");
             input1 = prefix + "x1";
             input2 = prefix + "x2";
         }

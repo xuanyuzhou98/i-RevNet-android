@@ -32,7 +32,7 @@ public class PsiLayer extends NoParamLayer {
 
     @Override
     public org.deeplearning4j.nn.api.Layer instantiate(NeuralNetConfiguration conf, Collection<TrainingListener> trainingListeners,
-                             int layerIndex, INDArray layerParamsView, boolean initializeParams, DataType networkDataType) {
+                                                       int layerIndex, INDArray layerParamsView, boolean initializeParams, DataType networkDataType) {
         //The instantiate method is how we go from the configuration class (i.e., this class) to the implementation class
         // (i.e., a CustomLayerImpl instance)
         //For the most part, it's the same for each type of layer
