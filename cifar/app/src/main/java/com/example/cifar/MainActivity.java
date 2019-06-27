@@ -159,22 +159,22 @@ public class MainActivity extends AppCompatActivity
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            try{
+            try {
                 int[] nChannels = new int[]{16, 64, 256};
                 int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
-                int in_ch = channels * (int)Math.pow(2, init_ds);
+                int in_ch = channels * (int) Math.pow(2, init_ds);
                 int n = in_ch / 2;
                 int outputNum = 10; // number of output classes
                 final int numRows = 32;
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
-                int numEpochs = 10; // number of epochs to perform
-                int batchSize = 100;
+                int numEpochs = 1000000; // number of epochs to perform
+                int batchSize = 128;
                 int mult = 4;
-                double init_lr = 0.01;
+                double init_lr = 0.1;
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -201,9 +201,11 @@ public class MainActivity extends AppCompatActivity
                         .updater(new Nesterovs(new MapSchedule(ScheduleType.ITERATION,
                                 learningRateSchedule), 0.9))
                         .weightDecay(5e-4);
+
                 if (half_precision) {
                     config.dataType(DataType.HALF);
                 }
+
                 ComputationGraphConfiguration.GraphBuilder graph = config.graphBuilder();
 
                 graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels));
@@ -222,7 +224,7 @@ public class MainActivity extends AppCompatActivity
                 String input2 = "tilde_x0";
                 boolean first = true;
                 List<IRevBlock> blockList = new ArrayList<>();
-                for (int i = 0; i < 3; i++) { // for each stage
+                for (int i = 0; i < nBlocks.length; i++) { // for each stage
                     for (int j = 0; j < nBlocks[i]; j++) { // for each block in the stage
                         int stride = 1;
                         if (j == 0) {
@@ -240,15 +242,15 @@ public class MainActivity extends AppCompatActivity
                 }
 
                 ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum);
-
                 LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                         .activation(Activation.SOFTMAX)
                         .build();
 
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
-                        .addLayer("outputProb", probLayer,"merge")
+                        .addLayer("outputProb", probLayer, "merge")
                         .addLayer("output", lossLayer, "outputProb")
-                        .setOutputs( "output", "merge");
+                        .setOutputs("output", "merge");
+
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
@@ -256,14 +258,13 @@ public class MainActivity extends AppCompatActivity
                 MemoryManager mg = Nd4j.getMemoryManager();
                 mg.togglePeriodicGc(true);
 
-                Log.d("Output", "start training");
+                Log.d("", "start training");
                 if (manual_gradients) {
                     int i = 0;
-                    Gradient gradient = new DefaultGradient();
                     ComputationGraphUpdater updater = model.getUpdater();
                     for (int epoch = 0; epoch < numEpochs; epoch++) {
                         while (cifarTrain.hasNext()) {
-                            Log.d("Iteration", "Running iter " + i);
+                            Log.d("", "Running iter " + i);
                             DataSet data = cifarTrain.next();
                             INDArray label = data.getLabels();
                             INDArray features = data.getFeatures();
@@ -275,11 +276,12 @@ public class MainActivity extends AppCompatActivity
                             INDArray merge = outputs[1];
                             long EndTime = System.nanoTime();
                             double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished forward iter " + i);
+                            Log.d("", "forward time" + elapsedTimeInSecond);
+                            Log.d("", "finished forward iter " + i);
 
                             // Backward Pass
                             StartTime = System.nanoTime();
+                            Gradient gradient = new DefaultGradient();
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
                             INDArray dwGradient = outputGradients[1];
                             INDArray dbGradient = outputGradients[2];
@@ -287,24 +289,50 @@ public class MainActivity extends AppCompatActivity
                             INDArray[] hiddens = Utils.splitHalf(merge);
                             computeGradient(gradient, hiddens[0], hiddens[1],
                                     nBlocks, blockList, lossGradient);
-                            gradient.setGradientFor("outputProb_denseWeight", dwGradient);
+                            gradient.setGradientFor("outputProb_denseWeight", dwGradient, 'c');
                             gradient.setGradientFor("outputProb_denseBias", dbGradient);
                             updater.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             model.params().subi(gradient.gradient());
                             EndTime = System.nanoTime();
                             elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                            Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                            Log.d("output", "finished backward iter " + i);
-
+                            Log.d("", "backward time" + elapsedTimeInSecond);
+                            Log.d("", "finished backward iter " + i);
                             // Evaluation
-                            Evaluation eval = new Evaluation(10);
+                            if (i % 50 == 0) {
+                                Log.d("", "Evaluate model....");
+                                Evaluation evalTest = new Evaluation(outputNum);
+                                while (cifarTest.hasNext()) {
+                                    DataSet next = cifarTest.next();
+                                    INDArray out = model.output(false, false, next.getFeatures())[0];
+                                    evalTest.eval(next.getLabels(), out);
+                                }
+                                cifarTest.reset();
+                                Log.d("", evalTest.stats());
+                            }
+                            Evaluation eval = new Evaluation(outputNum);
                             eval.eval(label, output);
-                            Log.d("accuracy", eval.stats());
+                            Log.d("", eval.stats());
+                            i++;
+                        }
+                        cifarTrain.reset();
+
+                    }
+                } else {
+                    int i = 0;
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        Log.d("", "Model fit Epoch " + epoch);
+                        while (cifarTrain.hasNext()) {
+                            Log.d("", "Model fit Iter " + i);
+                            DataSet data = cifarTrain.next();
+                            INDArray[] labels = new INDArray[]{data.getLabels()};
+                            INDArray[] features = new INDArray[]{data.getFeatures()};
+                            INDArray[] featureMasks = new INDArray[]{data.getFeaturesMaskArray()};
+                            INDArray[] labelMasks = new INDArray[]{data.getLabelsMaskArray()};
+                            model.fit(features, labels, featureMasks, labelMasks);
+                            Log.d("", "Model fit Score " + model.score());
                             i++;
                         }
                     }
-                } else {
-                    model.fit(cifarTrain, numEpochs);
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -314,7 +342,7 @@ public class MainActivity extends AppCompatActivity
 
         // This function computes the total gradient of the graph without referring to the stored activation
         protected void computeGradient(Gradient gradient, INDArray y1, INDArray y2, int[] nBlocks,
-                                                            List<IRevBlock> blockList, INDArray[] lossGradient) {
+                                       List<IRevBlock> blockList, INDArray[] lossGradient) {
             INDArray dy1 = lossGradient[0];
             INDArray dy2 = lossGradient[1];
             int cnt = blockList.size() - 1;
@@ -333,14 +361,14 @@ public class MainActivity extends AppCompatActivity
                     String prefix = iRev.getPrefix();
                     dy1 = gradients.get(0);
                     dy2 = gradients.get(1);
-                    grads[(cnt+1) * 3 - 3] = new Pair(prefix + "btnk_conv1Weight", gradients.get(2));
-                    grads[(cnt+1) * 3 - 2] = new Pair(prefix + "btnk_conv2Weight", gradients.get(3));
-                    grads[(cnt+1) * 3 - 1] = new Pair(prefix + "btnk_conv3Weight", gradients.get(4));
+                    grads[(cnt + 1) * 3 - 3] = new Pair(prefix + "btnk_conv1Weight", gradients.get(2));
+                    grads[(cnt + 1) * 3 - 2] = new Pair(prefix + "btnk_conv2Weight", gradients.get(3));
+                    grads[(cnt + 1) * 3 - 1] = new Pair(prefix + "btnk_conv3Weight", gradients.get(4));
                     cnt -= 1;
                 }
             }
             for (Pair<String, INDArray> grad : grads) {
-                gradient.setGradientFor(grad.first, grad.second);
+                gradient.setGradientFor(grad.first, grad.second, 'c');
             }
         }
     }

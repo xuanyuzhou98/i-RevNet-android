@@ -43,8 +43,7 @@ public class ProbLayer extends SameDiffLayer {
         SDVariable denseBias = sd.var(paramTable.get("denseBias"));
         SDVariable outputRelu = sd.nn().relu("outputRelu", layerInput, 0.);
         SDVariable outputPool = outputRelu.mean("outputPool", false, 2, 3);
-        SDVariable mmul = sd.mmul("mmul", outputPool, denseWeight);
-        SDVariable outputDense = mmul.add("outputDense", denseBias);
+        SDVariable outputDense = sd.nn().linear("outputDense", outputPool, denseWeight, denseBias);
         return outputDense;
     }
 
@@ -57,8 +56,8 @@ public class ProbLayer extends SameDiffLayer {
      */
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
-        params.get("denseBias").assign(0);
-        initWeights(in_ch, out_ch, WeightInit.XAVIER, params.get("denseWeight"));
+        initWeights(in_ch, out_ch, WeightInit.XAVIER_UNIFORM, params.get("denseWeight"));
+        initWeights(in_ch, out_ch, WeightInit.UNIFORM, params.get("denseBias"));
     }
 
 
