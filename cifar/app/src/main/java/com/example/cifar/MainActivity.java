@@ -5,20 +5,50 @@ import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Environment;
+import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Pair;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.util.Log;
 
+import org.bytedeco.opencv.presets.opencv_core;
+import org.datavec.image.transform.CropImageTransform;
+import org.datavec.image.transform.FlipImageTransform;
+import org.datavec.image.transform.ImageTransform;
+import org.datavec.image.transform.MultiImageTransform;
+import org.datavec.image.transform.RandomCropTransform;
+import org.deeplearning4j.common.resources.DL4JResources;
+import org.deeplearning4j.datasets.fetchers.DataSetType;
+import org.deeplearning4j.datasets.iterator.impl.Cifar10DataSetIterator;
+import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
+import org.deeplearning4j.nn.api.Trainable;
+import org.deeplearning4j.nn.updater.LayerUpdater;
+import org.deeplearning4j.nn.updater.UpdaterBlock;
+import org.deeplearning4j.nn.updater.graph.ComputationGraphUpdater;
+import org.deeplearning4j.nn.workspace.ArrayType;
+import org.deeplearning4j.optimize.Solver;
+import org.deeplearning4j.util.ModelSerializer;
+import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.api.buffer.DataType;
+import org.nd4j.linalg.api.memory.MemoryWorkspace;
+import org.nd4j.linalg.api.memory.conf.WorkspaceConfiguration;
+import org.nd4j.linalg.api.memory.enums.AllocationPolicy;
+import org.nd4j.linalg.api.memory.enums.LearningPolicy;
 import org.nd4j.linalg.dataset.DataSet;
 import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.gradient.DefaultGradient;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
+import org.nd4j.linalg.dataset.api.preprocessor.NormalizerMinMaxScaler;
+import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
+import org.nd4j.linalg.dataset.api.preprocessor.StandardizeStrategy;
+import org.nd4j.linalg.factory.Nd4jBackend;
+import org.nd4j.linalg.learning.NesterovsUpdater;
+import org.nd4j.linalg.learning.config.IUpdater;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.datavec.image.loader.NativeImageLoader;
 import org.datavec.image.recordreader.ImageRecordReader;
@@ -37,22 +67,32 @@ import org.deeplearning4j.nn.conf.*;
 import org.deeplearning4j.nn.conf.layers.*;
 import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.nd4j.linalg.learning.config.Nesterovs;
+
 import org.nd4j.linalg.factory.Nd4j;
 import org.deeplearning4j.nn.workspace.LayerWorkspaceMgr;
+import org.nd4j.linalg.memory.MemoryManager;
+import org.nd4j.linalg.schedule.MapSchedule;
+import org.nd4j.linalg.schedule.ScheduleType;
+import org.nd4j.linalg.schedule.StepSchedule;
+import org.tensorflow.framework.DebugOptions;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.lang.Math;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity
+        implements ActivityCompat.OnRequestPermissionsResultCallback {
     private static final String basePath = Environment.getExternalStorageDirectory() + "/cifar";
-    private static final String dataUrl = "http://pjreddie.com/media/files/cifar.tgz";
     private static final boolean manual_gradients = true;
+    private static final boolean half_precision = false;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -64,8 +104,17 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         verifyStoragePermission(MainActivity.this);
+        System.setProperty("org.bytedeco.javacpp.maxphysicalbytes", "0");
+        System.setProperty("org.bytedeco.javacpp.maxbytes", "0");
 
-        Button button = findViewById(R.id.button);
+
+        if (half_precision) {
+            Nd4j.setDefaultDataTypes(DataType.HALF, DataType.HALF);
+        }
+
+        System.out.println("ND4J Data Type Setting: " + Nd4j.dataType());
+
+        final Button button = findViewById(R.id.button);
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -76,6 +125,13 @@ public class MainActivity extends AppCompatActivity {
                 bar.setVisibility(View.VISIBLE);
             }
         });
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                button.performClick();
+            }
+        }, 1000);
     }
 
     public static void verifyStoragePermission(Activity activity) {
@@ -103,13 +159,9 @@ public class MainActivity extends AppCompatActivity {
         // This is our main background thread for the neural net
         @Override
         protected String doInBackground(String... params) {
-            System.setProperty("org.bytedeco.javacpp.maxphysicalbytes", "0");
-            System.setProperty("org.bytedeco.javacpp.maxbytes", "0");
-
             try {
-
                 int[] nChannels = new int[]{16, 64, 256};
-                int[] nBlocks = new int[]{2, 2, 2};
+                int[] nBlocks = new int[]{18, 18, 18};
                 int[] nStrides = new int[]{1, 2, 2};
                 int channels = 3;
                 int init_ds = 0;
@@ -119,49 +171,44 @@ public class MainActivity extends AppCompatActivity {
                 final int numRows = 32;
                 final int numColumns = 32;
                 int rngSeed = 1234; // random number seed for reproducibility
-                int numEpochs = 1; // number of epochs to perform
-                Random randNumGen = new Random(rngSeed);
-                int batchSize = 64; // batch size for each epoch
+                int numEpochs = 200; // number of epochs to perform
+                int batchSize = 128;
                 int mult = 4;
+                double init_lr = 0.1;
 
-                if (!new File(basePath + "/cifar").exists()) {
-                    Log.d("Data download", "Data downloaded from " + dataUrl);
-                    String localFilePath = basePath + "/cifar.tgz";
-                    if (DataUtilities.downloadFile(dataUrl, localFilePath)) {
-                        DataUtilities.extractTarGz(localFilePath, basePath);
-                    }
+                Map<Integer, Double> learningRateSchedule = new HashMap<>();
+                learningRateSchedule.put(0, init_lr);
+                learningRateSchedule.put(60, init_lr * Math.pow(0.2, 1));
+                learningRateSchedule.put(120, init_lr * Math.pow(0.2, 2));
+                learningRateSchedule.put(160, init_lr * Math.pow(0.2, 3));
+
+                File baseDir = new File(basePath);
+                if (!baseDir.exists()) {
+                    baseDir.mkdir();
+                }
+                DL4JResources.setBaseDirectory(baseDir);
+                Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
+                        DataSetType.TRAIN, null, rngSeed);
+                DataNormalization normalizer = new NormalizerStandardize();
+                normalizer.fit(cifarTrain);
+                cifarTrain.setPreProcessor(normalizer);
+                Cifar10DataSetIterator cifarTest = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
+                        DataSetType.TEST, null, rngSeed);
+                cifarTest.setPreProcessor(normalizer);
+
+                NeuralNetConfiguration.Builder config = new NeuralNetConfiguration.Builder()
+                        .seed(rngSeed)
+                        .updater(new Nesterovs(new MapSchedule(ScheduleType.EPOCH,
+                                learningRateSchedule), 0.9))
+                        .weightDecay(5e-4);
+
+                if (half_precision) {
+                    config.dataType(DataType.HALF);
                 }
 
-                // vectorization of train data
-                File trainData = new File(basePath + "/cifar/train");
-                FileSplit trainSplit = new FileSplit(trainData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator(); // parent path as the image label
-                ImageRecordReader trainRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                trainRR.initialize(trainSplit);
-                DataSetIterator cifarTrain = new RecordReaderDataSetIterator(trainRR, batchSize, 1, outputNum);
-                // pixel values from 0-255 to 0-1 (min-max scaling)
-                DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
-                scaler.fit(cifarTrain);
-                cifarTrain.setPreProcessor(scaler);
+                ComputationGraphConfiguration.GraphBuilder graph = config.graphBuilder();
 
-                // vectorization of test data
-                File testData = new File(basePath + "/cifar/test");
-                FileSplit testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen);
-                ImageRecordReader testRR = new ImageRecordReader(numRows, numColumns, channels, labelMaker);
-                testRR.initialize(testSplit);
-                DataSetIterator cifarTest = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum);
-                cifarTest.setPreProcessor(scaler); // same normalization for better results
-
-                ComputationGraphConfiguration.GraphBuilder graph = new NeuralNetConfiguration.Builder()
-                        //.dataType(DataType.HALF)
-                        .seed(rngSeed)
-                        .activation(Activation.IDENTITY)
-                        .updater(new Nesterovs(0.1, 0.9))
-                        .weightInit(WeightInit.XAVIER)
-                        .l1(1e-7)
-                        .l2(5e-5)
-                        .graphBuilder();
-                graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels)); //(3, 3, 32, 32)
+                graph.addInputs("input").setInputTypes(InputType.convolutional(numRows, numColumns, channels));
                 String lastLayer = "input";
                 if (init_ds != 0) {
                     graph.addLayer("init_psi", new PsiLayer.Builder()
@@ -170,161 +217,159 @@ public class MainActivity extends AppCompatActivity {
                     lastLayer = "init_psi";
                 }
 
-                graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer) //(3, 1, 32, 32)
-                        .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer); //(3, 2, 32, 32)
-                ActivationLayer relu = new ActivationLayer.Builder()
-                        .activation(Activation.RELU)
-                        .build();
-                graph.addLayer("firstRelu", relu, "tilde_x0");
+                graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer)
+                        .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer);
                 int in_ch_Block = in_ch;
-                String input1 = "x0"; //(3, 1, 32, 32)
-                String input2 = "firstRelu"; // (3, 2, 32, 32)
+                String input1 = "x0";
+                String input2 = "tilde_x0";
+                boolean first = true;
                 List<IRevBlock> blockList = new ArrayList<>();
-                for (int i = 0; i < 3; i++) { // for each stage
+                for (int i = 0; i < nBlocks.length; i++) { // for each stage
                     for (int j = 0; j < nBlocks[i]; j++) { // for each block in the stage
                         int stride = 1;
                         if (j == 0) {
                             stride = nStrides[i];
                         }
-                        IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride,
+                        IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride, first,
                                 mult, input1, input2, String.valueOf(i) + String.valueOf(j));
                         String[] outputs = innerIRevBlock.getOutput();
                         input1 = outputs[0];
                         input2 = outputs[1];
                         blockList.add(innerIRevBlock);
                         in_ch_Block = 2 * nChannels[i];
+                        first = false;
                     }
                 }
 
-                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum, 8, 8,
-                        WeightInit.XAVIER);
-
+                ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum);
                 LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                         .activation(Activation.SOFTMAX)
                         .build();
 
-
                 graph.addVertex("merge", new MergeVertex(), input1, input2)
-                        .addLayer("outputProb", probLayer,"merge")
+                        .addLayer("outputProb", probLayer, "merge")
                         .addLayer("output", lossLayer, "outputProb")
                         .setOutputs("output", "merge");
+
 
                 ComputationGraphConfiguration conf = graph.build();
                 ComputationGraph model = new ComputationGraph(conf);
                 model.init();
-                Nd4j.getMemoryManager().togglePeriodicGc(false);
-                model.setListeners(new ScoreIterationListener(1));
+                MemoryManager mg = Nd4j.getMemoryManager();
+                mg.togglePeriodicGc(true);
 
-                Log.d("Output", "start training");
+                Log.d("", "start training");
                 if (manual_gradients) {
                     int i = 0;
-                    while (cifarTrain.hasNext()) {
-                        Log.d("Iteration", "Running iter " + i);
-                        DataSet data = cifarTrain.next();
-                        INDArray label = data.getLabels();
-                        INDArray features = data.getFeatures();
-                        long StartTime = System.nanoTime();
-                        INDArray merge = model.output(false, false, features)[1];
-                        long EndTime = System.nanoTime();
-                        double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                        Log.d("forward time", String.valueOf(elapsedTimeInSecond));
-                        Log.d("output", "finished forward iter " + i);
+                    ComputationGraphUpdater updater = model.getUpdater();
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        while (cifarTrain.hasNext()) {
+                            Log.d("", "Running iter " + i);
+                            DataSet data = cifarTrain.next();
+                            INDArray label = data.getLabels();
+                            INDArray features = data.getFeatures();
 
-                        StartTime = System.nanoTime();
-                        Gradient gradient = new DefaultGradient();
-                        INDArray[] outputGradients = probLayer.gradient(merge, label);
-                        INDArray dwGradient = outputGradients[1];
-                        INDArray dbGradient = outputGradients[2];
-                        gradient.setGradientFor("outputProb_denseWeight", dwGradient);
-                        gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                        INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                        INDArray[] hiddens = Utils.splitHalf(merge);
-                        HashMap<String, INDArray> gradientMap = computeGradient(model, hiddens[0], hiddens[1],
-                                nBlocks, blockList, lossGradient);
-                        for (Map.Entry<String, INDArray> entry : gradientMap.entrySet()) {
-                            gradient.setGradientFor(entry.getKey(), entry.getValue());
+                            // Forward Pass
+                            long StartTime = System.nanoTime();
+                            INDArray[] outputs = model.output(false, false, features);
+                            INDArray output = outputs[0];
+                            INDArray merge = outputs[1];
+                            long EndTime = System.nanoTime();
+                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("", "forward time" + elapsedTimeInSecond);
+                            Log.d("", "finished forward iter " + i);
+
+                            // Backward Pass
+                            StartTime = System.nanoTime();
+                            Gradient gradient = new DefaultGradient();
+                            INDArray[] outputGradients = probLayer.gradient(merge, label);
+                            INDArray dwGradient = outputGradients[1];
+                            INDArray dbGradient = outputGradients[2];
+                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                            INDArray[] hiddens = Utils.splitHalf(merge);
+                            computeGradient(gradient, hiddens[0], hiddens[1],
+                                    nBlocks, blockList, lossGradient);
+                            gradient.setGradientFor("outputProb_denseWeight", dwGradient, 'c');
+                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                            updater.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                            model.params().subi(gradient.gradient());
+                            EndTime = System.nanoTime();
+                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("", "backward time" + elapsedTimeInSecond);
+                            Log.d("", "finished backward iter " + i);
+                            // Evaluation
+//                            if (i % 50 == 0) {
+//                                Log.d("", "Evaluate model....");
+//                                Evaluation evalTest = new Evaluation(outputNum);
+//                                while (cifarTest.hasNext()) {
+//                                    DataSet next = cifarTest.next();
+//                                    INDArray out = model.output(false, false, next.getFeatures())[0];
+//                                    evalTest.eval(next.getLabels(), out);
+//                                }
+//                                cifarTest.reset();
+//                                Log.d("", evalTest.stats());
+//                            }
+                            Evaluation eval = new Evaluation(outputNum);
+                            eval.eval(label, output);
+                            Log.d("", eval.stats());
+                            i++;
                         }
-                        model.getUpdater().update(gradient, 0, 0, batchSize, LayerWorkspaceMgr.noWorkspaces());
-                        EndTime = System.nanoTime();
-                        elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-                        Log.d("backward time", String.valueOf(elapsedTimeInSecond));
-                        Log.d("output", "finished backward iter " + i);
-                        i++;
+                        cifarTrain.reset();
+
                     }
                 } else {
-                    for(int l=0; l <= numEpochs; l++) {
-                        model.fit(cifarTrain);
+                    int i = 0;
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        Log.d("", "Model fit Epoch " + epoch);
+                        while (cifarTrain.hasNext()) {
+                            Log.d("", "Model fit Iter " + i);
+                            DataSet data = cifarTrain.next();
+                            INDArray[] labels = new INDArray[]{data.getLabels()};
+                            INDArray[] features = new INDArray[]{data.getFeatures()};
+                            INDArray[] featureMasks = new INDArray[]{data.getFeaturesMaskArray()};
+                            INDArray[] labelMasks = new INDArray[]{data.getLabelsMaskArray()};
+                            model.fit(features, labels, featureMasks, labelMasks);
+                            Log.d("", "Model fit Score " + model.score());
+                            i++;
+                        }
                     }
                 }
             } catch (Exception ex) {
-                Log.d("AsyncTaskRunner2 ", "catchIOException = " + ex);
+                ex.printStackTrace();
             }
             return "";
         }
 
-
         // This function computes the total gradient of the graph without referring to the stored activation
-        protected HashMap<String, INDArray> computeGradient(ComputationGraph model, INDArray y2, INDArray y1, int[] nBlocks,
-                                                            List<IRevBlock> blockList, INDArray[] lossGradient) {
-
-            HashMap<String, INDArray> gradsResult = new HashMap<>();
-            // get dy1 and dy2
+        protected void computeGradient(Gradient gradient, INDArray y1, INDArray y2, int[] nBlocks,
+                                       List<IRevBlock> blockList, INDArray[] lossGradient) {
             INDArray dy1 = lossGradient[0];
             INDArray dy2 = lossGradient[1];
-
             int cnt = blockList.size() - 1;
+            Pair<String, INDArray>[] grads = new Pair[blockList.size() * 3];
             // from the last layer to the first layer
             for (int i = nBlocks.length - 1; i >= 0; i -= 1) { // for each stage
                 for (int j = nBlocks[i] - 1; j >= 0; j -= 1) { // for each iRevBlock
                     IRevBlock iRev = blockList.get(cnt);
-                    // get x1 and x2
                     INDArray[] x = iRev.inverse(y1, y2);
                     INDArray x1 = x[0];
                     INDArray x2 = x[1];
-                    // update (and swap) y1 and y2
+                    Runtime.getRuntime().gc();
                     y1 = x1;
                     y2 = x2;
-                    // get gradients
-                    List<INDArray> gradients = iRev.gradient(x1, dy1, dy2);
-                    // update dy1 and dy2 (already swapped)
+                    List<INDArray> gradients = iRev.gradient(x2, dy1, dy2);
                     String prefix = iRev.getPrefix();
                     dy1 = gradients.get(0);
                     dy2 = gradients.get(1);
-                    // save graidents
-                    gradsResult.put(prefix + "btnk_conv1Weight", gradients.get(2));
-                    gradsResult.put(prefix + "btnk_conv2Weight", gradients.get(3));
-                    gradsResult.put(prefix + "btnk_conv3Weight", gradients.get(4));
+                    grads[(cnt + 1) * 3 - 3] = new Pair(prefix + "btnk_conv1Weight", gradients.get(2));
+                    grads[(cnt + 1) * 3 - 2] = new Pair(prefix + "btnk_conv2Weight", gradients.get(3));
+                    grads[(cnt + 1) * 3 - 1] = new Pair(prefix + "btnk_conv3Weight", gradients.get(4));
                     cnt -= 1;
                 }
             }
-
-            return gradsResult;
-        }
-
-        private long getFlopCountConv(int channels, int filter_size, int num_filters,
-                                      int outShapeH, int outShapeW) {
-            return (2 * channels * filter_size * filter_size - 1) * num_filters * outShapeH * outShapeW;
-        }
-
-        private long getFlopCountFC(int inputSize, int outputSize) {
-            return (2 * inputSize - 1) * outputSize;
-        }
-
-        private long getFlopCountConvBackward(int channels, int filter_size, int num_filters,
-                                              int outShapeH, int outShapeW) {
-            int out = outShapeH * outShapeW;
-            int db = out;
-            int dw = num_filters * ((2 * out - 1) * channels * filter_size * filter_size);
-            int dx_cols = channels * filter_size * filter_size * (2 * num_filters - 1) * out;
-            int dx = channels * filter_size * filter_size * out;
-            return db + dw + dx_cols + dx;
-        }
-
-        private long getFlopCountFCBackward(int inputSize, int outputSize) {
-            int db = outputSize;
-            int dx = (2 * outputSize - 1) * inputSize;
-            int dw = inputSize * outputSize;
-            return db + dx + dw;
+            for (Pair<String, INDArray> grad : grads) {
+                gradient.setGradientFor(grad.first, grad.second, 'c');
+            }
         }
     }
 }

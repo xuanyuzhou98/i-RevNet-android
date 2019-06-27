@@ -6,28 +6,23 @@ import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.samediff.SDLayerParams;
 import org.deeplearning4j.nn.conf.layers.samediff.SameDiffLayer;
 import org.deeplearning4j.nn.weights.WeightInit;
+import org.nd4j.autodiff.loss.LossReduce;
 import org.nd4j.autodiff.samediff.SDVariable;
 import org.nd4j.autodiff.samediff.SameDiff;
 import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.api.ops.impl.layers.convolution.config.Pooling2DConfig;
 
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Map;
 
 
 public class ProbLayer extends SameDiffLayer {
     private int in_ch;
     private int out_ch;
-    private int height;
-    private int width;
     private Map<String, SDVariable> paramTable;
 
-    public ProbLayer(int in_ch, int out_ch, int height, int width, WeightInit weightInit) {
+    public ProbLayer(int in_ch, int out_ch) {
         this.in_ch = in_ch;
         this.out_ch = out_ch;
-        this.weightInit = weightInit;
-        this.height = height;
-        this.width = width;
     }
 
     /**
@@ -44,21 +39,11 @@ public class ProbLayer extends SameDiffLayer {
     public SDVariable defineLayer(SameDiff sd, SDVariable layerInput, Map<String, SDVariable> paramTable, SDVariable mask) {
         // parameters
         this.paramTable = paramTable;
-        SDVariable denseWeight = paramTable.get("denseWeight");
-        SDVariable denseBias = paramTable.get("denseBias");
-        sd.var(denseWeight);
-        sd.var(denseBias);
+        SDVariable denseWeight = sd.var(paramTable.get("denseWeight"));
+        SDVariable denseBias = sd.var(paramTable.get("denseBias"));
         SDVariable outputRelu = sd.nn().relu("outputRelu", layerInput, 0.);
-        Pooling2DConfig c = Pooling2DConfig.builder()
-                .kH(this.height).kW(this.width)
-                .pH(0).pW(0)
-                .isSameMode(false)
-                .sH(1).sW(1)
-                .build();
-        SDVariable outputPool = sd.cnn().avgPooling2d("outputPool", outputRelu, c);
-        SDVariable outputSqueeze = sd.squeeze(outputPool, 2);
-        SDVariable outputReshape = sd.squeeze(outputSqueeze, 2);
-        SDVariable outputDense = sd.nn().linear("outputDense", outputReshape, denseWeight, denseBias);
+        SDVariable outputPool = outputRelu.mean("outputPool", false, 2, 3);
+        SDVariable outputDense = sd.nn().linear("outputDense", outputPool, denseWeight, denseBias);
         return outputDense;
     }
 
@@ -71,8 +56,8 @@ public class ProbLayer extends SameDiffLayer {
      */
     @Override
     public void initializeParameters(Map<String, INDArray> params) {
-        initWeights(in_ch, out_ch, weightInit, params.get("denseWeight"));
-        initWeights(1, out_ch, weightInit, params.get("denseBias"));
+        initWeights(in_ch, out_ch, WeightInit.XAVIER_UNIFORM, params.get("denseWeight"));
+        initWeights(in_ch, out_ch, WeightInit.UNIFORM, params.get("denseBias"));
     }
 
 
@@ -87,7 +72,7 @@ public class ProbLayer extends SameDiffLayer {
     public InputType getOutputType(int layerIndex, InputType inputType) {
         //In this method: you define the type of output/activations, if appropriate, given the type of input to the layer
         //This is used in a few methods in DL4J to calculate activation shapes, memory requirements etc
-        return InputType.convolutional(1, 1, this.out_ch);
+        return InputType.feedForward(out_ch);
     }
 
     /**
@@ -98,17 +83,14 @@ public class ProbLayer extends SameDiffLayer {
         SameDiff sd = SameDiff.create();
         SDVariable layerInput = sd.var("input", x);
         SDVariable labelInput = sd.constant("label", label);
-        layerInput.isPlaceHolder();
-        SDVariable output = defineLayer(sd, layerInput, this.paramTable, null);
-        sd.loss().softmaxCrossEntropy("loss", output, labelInput);
+        SDVariable outputDense = defineLayer(sd, layerInput, paramTable, null);
+        SDVariable loss = sd.loss().softmaxCrossEntropy("loss", labelInput, outputDense, LossReduce.NONE);
+        sd.execBackwards(Collections.EMPTY_MAP);
+        Log.d("loss:", loss.eval().mean().toString());
         String[] w_names = new String[]{"input", "denseWeight", "denseBias"};
-        Map<String, INDArray> placeHolders = new HashMap();
-        placeHolders.put("input", x);
-        sd.execBackwards(placeHolders);
         INDArray[] grads = new INDArray[w_names.length];
         for (int i = 0; i < w_names.length; i++) {
-            grads[i] = sd.getGradForVariable(w_names[i]).getArr();
-            Log.d("grad", grads[i].toString());
+            grads[i] = sd.grad(w_names[i]).getArr();
         }
         return grads;
     }

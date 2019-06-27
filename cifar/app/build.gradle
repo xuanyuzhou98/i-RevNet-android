@@ -17,6 +17,13 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    buildscript {
+        configurations.all {
+            resolutionStrategy {
+                force 'net.sf.proguard:proguard-gradle:5.3.2'
+            }
+        }
+    }
     packagingOptions {
         exclude 'META-INF/DEPENDENCIES'
         exclude 'META-INF/DEPENDENCIES.txt'
