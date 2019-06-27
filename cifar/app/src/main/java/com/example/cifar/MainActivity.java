@@ -270,17 +270,17 @@ public class MainActivity extends AppCompatActivity
                             INDArray features = data.getFeatures();
 
                             // Forward Pass
-//                        long StartTime = System.nanoTime();
+                            long StartTime = System.nanoTime();
                             INDArray[] outputs = model.output(false, false, features);
                             INDArray output = outputs[0];
                             INDArray merge = outputs[1];
-//                        long EndTime = System.nanoTime();
-//                        double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-//                        log.info("forward time" + elapsedTimeInSecond);
-//                        log.info("finished forward iter " + i);
+                            long EndTime = System.nanoTime();
+                            double elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("forward time" , String.valueOf(elapsedTimeInSecond));
+                            Log.d("finished forward iter ", String.valueOf(i));
 
-                            // Backward Pass
-//                        StartTime = System.nanoTime();
+                             //Backward Pass
+                            StartTime = System.nanoTime();
                             Gradient gradient = new DefaultGradient();
                             INDArray[] outputGradients = probLayer.gradient(merge, label);
                             INDArray dwGradient = outputGradients[1];
@@ -293,10 +293,10 @@ public class MainActivity extends AppCompatActivity
                             gradient.setGradientFor("outputProb_denseBias", dbGradient);
                             updater.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
                             model.params().subi(gradient.gradient());
-//                        EndTime = System.nanoTime();
-//                        elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
-//                        log.info("backward time" + elapsedTimeInSecond);
-//                        log.info("finished backward iter " + i);
+                            EndTime = System.nanoTime();
+                            elapsedTimeInSecond = (double) (EndTime - StartTime) / 1_000_000_000;
+                            Log.d("backward time" , String.valueOf(elapsedTimeInSecond));
+                            Log.d("finished backward iter ", String.valueOf(i));
                             // Evaluation
                             if (i % 50 == 0) {
                                 Log.d("Evaluate","Evaluate model....");
