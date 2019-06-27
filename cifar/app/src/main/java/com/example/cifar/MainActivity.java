@@ -298,17 +298,17 @@ public class MainActivity extends AppCompatActivity
                             Log.d("", "backward time" + elapsedTimeInSecond);
                             Log.d("", "finished backward iter " + i);
                             // Evaluation
-                            if (i % 50 == 0) {
-                                Log.d("", "Evaluate model....");
-                                Evaluation evalTest = new Evaluation(outputNum);
-                                while (cifarTest.hasNext()) {
-                                    DataSet next = cifarTest.next();
-                                    INDArray out = model.output(false, false, next.getFeatures())[0];
-                                    evalTest.eval(next.getLabels(), out);
-                                }
-                                cifarTest.reset();
-                                Log.d("", evalTest.stats());
-                            }
+//                            if (i % 50 == 0) {
+//                                Log.d("", "Evaluate model....");
+//                                Evaluation evalTest = new Evaluation(outputNum);
+//                                while (cifarTest.hasNext()) {
+//                                    DataSet next = cifarTest.next();
+//                                    INDArray out = model.output(false, false, next.getFeatures())[0];
+//                                    evalTest.eval(next.getLabels(), out);
+//                                }
+//                                cifarTest.reset();
+//                                Log.d("", evalTest.stats());
+//                            }
                             Evaluation eval = new Evaluation(outputNum);
                             eval.eval(label, output);
                             Log.d("", eval.stats());
