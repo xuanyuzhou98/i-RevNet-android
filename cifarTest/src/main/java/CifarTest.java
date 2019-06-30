@@ -1,4 +1,5 @@
 import javafx.util.Pair;
+import org.datavec.image.transform.*;
 import org.deeplearning4j.common.resources.DL4JResources;
 import org.deeplearning4j.datasets.fetchers.DataSetType;
 import org.deeplearning4j.datasets.iterator.impl.Cifar10DataSetIterator;
@@ -29,10 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class CifarTest {
     protected static final Logger log = LoggerFactory.getLogger(CifarTest.class);
@@ -57,6 +55,7 @@ public class CifarTest {
             int batchSize = 128;
             int mult = 4;
             double init_lr = 0.1;
+            Random randNumGen = new Random(rngSeed);
 
             Map<Integer, Double> learningRateSchedule = new HashMap<>();
             learningRateSchedule.put(0, init_lr);
@@ -69,8 +68,10 @@ public class CifarTest {
                 baseDir.mkdir();
             }
             DL4JResources.setBaseDirectory(baseDir);
+            ImageTransform transform = new MultiImageTransform(randNumGen, new BoxImageTransform(40, 40),
+                    new CropImageTransform(randNumGen, 4), new FlipImageTransform(1)); // pad to 40*40, then crop to 32*32, then flip horizontally
             Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
-                DataSetType.TRAIN, null, rngSeed);
+                DataSetType.TRAIN, transform, rngSeed);
             DataNormalization normalizer = new NormalizerStandardize();
             normalizer.fit(cifarTrain);
             cifarTrain.setPreProcessor(normalizer);
