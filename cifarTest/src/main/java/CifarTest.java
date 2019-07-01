@@ -33,15 +33,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.deeplearning4j.parallelism.ParallelWrapper;
+import org.nd4j.jita.conf.CudaEnvironment;
 
 public class CifarTest {
     protected static final Logger log = LoggerFactory.getLogger(CifarTest.class);
     private static final String basePath = System.getProperty("java.io.tmpdir") + "/mnist";
-    private static final boolean manual_gradients = true;
+    private static final boolean manual_gradients = false;
     private static final boolean half_precision = false;
 
     public static void main(String[] args) {
         try {
+
+            CudaEnvironment.getInstance().getConfiguration()
+                .allowMultiGPU(true)
+                .setMaximumDeviceCache(2L * 1024L * 1024L * 1024L)
+                .allowCrossDeviceAccess(true);
             int[] nChannels = new int[]{16, 64, 256};
             int[] nBlocks = new int[]{18, 18, 18};
             int[] nStrides = new int[]{1, 2, 2};
@@ -135,12 +142,19 @@ public class CifarTest {
             graph.addVertex("merge", new MergeVertex(), input1, input2)
                 .addLayer("outputProb", probLayer,"merge")
                 .addLayer("output", lossLayer, "outputProb")
-                .setOutputs("output", "merge");
+                // .setOutputs("output", "merge");
+                .setOutputs("output");
 
 
             ComputationGraphConfiguration conf = graph.build();
             ComputationGraph model = new ComputationGraph(conf);
             model.init();
+            // ParallelWrapper will take care of load balancing between GPUs.
+            ParallelWrapper wrapper = new ParallelWrapper.Builder(model)
+                .prefetchBuffer(24)
+                .workers(2)
+                .build();
+
             MemoryManager mg = Nd4j.getMemoryManager();
             mg.togglePeriodicGc(true);
 
