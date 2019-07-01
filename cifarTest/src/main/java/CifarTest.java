@@ -182,11 +182,7 @@ public class CifarTest {
                         model.params().subi(gradient.gradient());
 
                         // Evaluation
-                        if (i % 25 == 0) {
-                            log.info("Training Accuracy....");
-                            Evaluation eval = new Evaluation(outputNum);
-                            eval.eval(label, output);
-                            log.info(eval.stats());
+                        if (i % 50 == 0) {
                             log.info("Evaluate model....");
                             Evaluation evalTest = new Evaluation(outputNum);
                             while(cifarTest.hasNext()){
@@ -197,9 +193,9 @@ public class CifarTest {
                             cifarTest.reset();
                             log.info(evalTest.stats());
                         }
-//                        Evaluation eval = new Evaluation(outputNum);
-//                        eval.eval(label, output);
-//                        log.info(eval.stats());
+                        Evaluation eval = new Evaluation(outputNum);
+                        eval.eval(label, output);
+                        log.info(eval.stats());
                         i++;
                     }
                     cifarTrain.reset();
