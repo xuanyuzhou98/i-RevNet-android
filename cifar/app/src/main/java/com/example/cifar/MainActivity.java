@@ -16,10 +16,13 @@ import android.widget.ProgressBar;
 import android.util.Log;
 
 import org.bytedeco.opencv.presets.opencv_core;
+import org.datavec.image.transform.BaseImageTransform;
+import org.datavec.image.transform.BoxImageTransform;
 import org.datavec.image.transform.CropImageTransform;
 import org.datavec.image.transform.FlipImageTransform;
 import org.datavec.image.transform.ImageTransform;
 import org.datavec.image.transform.MultiImageTransform;
+import org.datavec.image.transform.PipelineImageTransform;
 import org.datavec.image.transform.RandomCropTransform;
 import org.deeplearning4j.common.resources.DL4JResources;
 import org.deeplearning4j.datasets.fetchers.DataSetType;
@@ -83,6 +86,7 @@ import java.lang.Math;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -175,6 +179,7 @@ public class MainActivity extends AppCompatActivity
                 int batchSize = 128;
                 int mult = 4;
                 double init_lr = 0.1;
+                Random randNumGen = new Random(rngSeed);
 
                 Map<Integer, Double> learningRateSchedule = new HashMap<>();
                 learningRateSchedule.put(0, init_lr);
@@ -187,8 +192,13 @@ public class MainActivity extends AppCompatActivity
                     baseDir.mkdir();
                 }
                 DL4JResources.setBaseDirectory(baseDir);
+                List<org.nd4j.linalg.primitives.Pair<ImageTransform, Double>> pipeline = new LinkedList<>();
+                pipeline.add(new org.nd4j.linalg.primitives.Pair<ImageTransform, Double>(new BoxImageTransform(40, 40), 1.0));
+                pipeline.add(new org.nd4j.linalg.primitives.Pair<ImageTransform, Double>(new CropImageTransform(randNumGen, 4), 1.0));
+                pipeline.add(new org.nd4j.linalg.primitives.Pair<ImageTransform, Double>(new FlipImageTransform(1), 0.5));
+                ImageTransform transform = new PipelineImageTransform(pipeline, false); // pad to 40*40, then crop to 32*32, then flip horizontally
                 Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
-                        DataSetType.TRAIN, null, rngSeed);
+                        DataSetType.TRAIN, transform, rngSeed);
                 DataNormalization normalizer = new NormalizerStandardize();
                 normalizer.fit(cifarTrain);
                 cifarTrain.setPreProcessor(normalizer);
