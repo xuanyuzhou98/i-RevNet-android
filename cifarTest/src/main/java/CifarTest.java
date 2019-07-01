@@ -34,7 +34,7 @@ import java.util.*;
 
 public class CifarTest {
     protected static final Logger log = LoggerFactory.getLogger(CifarTest.class);
-    private static final String basePath = System.getProperty("java.io.tmpdir") + "/mnist";
+    private static final String basePath = System.getProperty("java.io.tmpdir") + "/cifar";
     private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
 
@@ -52,7 +52,7 @@ public class CifarTest {
             final int numColumns = 32;
             int rngSeed = 1234; // random number seed for reproducibility
             int numEpochs = 200; // number of epochs to perform
-            int batchSize = 128;
+            int batchSize = 1;
             int mult = 4;
             double init_lr = 0.1;
             Random randNumGen = new Random(rngSeed);
@@ -68,8 +68,14 @@ public class CifarTest {
                 baseDir.mkdir();
             }
             DL4JResources.setBaseDirectory(baseDir);
-            ImageTransform transform = new MultiImageTransform(randNumGen, new BoxImageTransform(40, 40),
-                    new CropImageTransform(randNumGen, 4), new FlipImageTransform(1)); // pad to 40*40, then crop to 32*32, then flip horizontally
+            List<org.nd4j.linalg.primitives.Pair<ImageTransform, Double>> pipeline = new LinkedList<>();
+            pipeline.add(new org.nd4j.linalg.primitives.Pair<>(new BoxImageTransform(40, 40), 1.0));
+            pipeline.add(new org.nd4j.linalg.primitives.Pair<>(new CropImageTransform(randNumGen, 4), 1.0));
+            pipeline.add(new org.nd4j.linalg.primitives.Pair<>(new FlipImageTransform(1), 0.5));
+            ImageTransform transform = new PipelineImageTransform(pipeline, false); // pad to 40*40, then crop to 32*32, then flip horizontally
+
+//            ImageTransform transform = new MultiImageTransform(randNumGen, new BoxImageTransform(40, 40),
+//                    new CropImageTransform(randNumGen, 4), new FlipImageTransform(1)); // pad to 40*40, then crop to 32*32, then flip horizontally
             Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
                 DataSetType.TRAIN, transform, rngSeed);
             DataNormalization normalizer = new NormalizerStandardize();
@@ -176,7 +182,11 @@ public class CifarTest {
                         model.params().subi(gradient.gradient());
 
                         // Evaluation
-                        if (i % 50 == 0) {
+                        if (i % 25 == 0) {
+                            log.info("Training Accuracy....");
+                            Evaluation eval = new Evaluation(outputNum);
+                            eval.eval(label, output);
+                            log.info(eval.stats());
                             log.info("Evaluate model....");
                             Evaluation evalTest = new Evaluation(outputNum);
                             while(cifarTest.hasNext()){
@@ -187,9 +197,9 @@ public class CifarTest {
                             cifarTest.reset();
                             log.info(evalTest.stats());
                         }
-                        Evaluation eval = new Evaluation(outputNum);
-                        eval.eval(label, output);
-                        log.info(eval.stats());
+//                        Evaluation eval = new Evaluation(outputNum);
+//                        eval.eval(label, output);
+//                        log.info(eval.stats());
                         i++;
                     }
                     cifarTrain.reset();
