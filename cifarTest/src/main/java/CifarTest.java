@@ -52,7 +52,7 @@ public class CifarTest {
             final int numColumns = 32;
             int rngSeed = 1234; // random number seed for reproducibility
             int numEpochs = 200; // number of epochs to perform
-            int batchSize = 1;
+            int batchSize = 128;
             int mult = 4;
             double init_lr = 0.1;
             Random randNumGen = new Random(rngSeed);
