@@ -37,6 +37,7 @@ public class CifarTest {
     private static final String basePath = System.getProperty("java.io.tmpdir") + "/cifar";
     private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
+    private static final boolean microbatch = true;
 
     public static void main(String[] args) {
         try {
@@ -53,6 +54,8 @@ public class CifarTest {
             int rngSeed = 1234; // random number seed for reproducibility
             int numEpochs = 200; // number of epochs to perform
             int batchSize = 128;
+            int microBatchSize = 16;
+            int microNum = batchSize / microBatchSize;
             int mult = 4;
             double init_lr = 0.1;
             Random randNumGen = new Random(rngSeed);
@@ -150,52 +153,129 @@ public class CifarTest {
 
             log.info("start training");
             if (manual_gradients) {
-                int i = 0;
-                ComputationGraphUpdater updater = model.getUpdater();
-                for (int epoch = 0; epoch < numEpochs; epoch++) {
-                    while (cifarTrain.hasNext()) {
-                        log.info("Running iter " + i);
-                        DataSet data = cifarTrain.next();
-                        INDArray label = data.getLabels();
-                        INDArray features = data.getFeatures();
+                if (microbatch) {
+                    int i = 0;
+                    ComputationGraphUpdater updater = model.getUpdater();
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        while (cifarTrain.hasNext()) {
+                            boolean flag = true; // If it is the first time, assign gradients; otherwise, accumulate gradients.
+                            log.info("Running iter " + i);
+                            DataSet data = cifarTrain.next();
+                            List<DataSet> microbatch = data.batchBy(microBatchSize);
+                            Iterator<DataSet> microItor = microbatch.iterator();
+                            Gradient gradient = new DefaultGradient();
+                            while (microItor.hasNext()){
+                                // fetch data
+                                DataSet microdata = microItor.next();
+                                INDArray microlabel = microdata.getLabels();
+                                INDArray microfeatures = microdata.getFeatures();
 
-                        // Forward Pass
-                        INDArray[] outputs = model.output(false, false, features);
-                        INDArray output = outputs[0];
-                        INDArray merge = outputs[1];
+                                // Forward Pass
+                                INDArray[] microOutputs = model.output(false, false, microfeatures);
+                                INDArray merge = microOutputs[1];
 
-                        // Backward Pass
-                        Gradient gradient = new DefaultGradient();
-                        INDArray[] outputGradients = probLayer.gradient(merge, label);
-                        INDArray dwGradient = outputGradients[1];
-                        INDArray dbGradient = outputGradients[2];
-                        INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
-                        INDArray[] hiddens = Utils.splitHalf(merge);
-                        computeGradient(gradient, hiddens[0], hiddens[1],
-                            nBlocks, blockList, lossGradient);
-                        gradient.setGradientFor("outputProb_denseWeight", dwGradient, 'c');
-                        gradient.setGradientFor("outputProb_denseBias", dbGradient);
-                        updater.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
-                        model.params().subi(gradient.gradient());
-
-                        // Evaluation
-                        if (i % 50 == 0) {
-                            log.info("Evaluate model....");
-                            Evaluation evalTest = new Evaluation(outputNum);
-                            while(cifarTest.hasNext()){
-                                DataSet next = cifarTest.next();
-                                INDArray out = model.output(false, false, next.getFeatures())[0];
-                                evalTest.eval(next.getLabels(), out);
+                                // Backward Pass
+                                INDArray[] outputGradients = probLayer.gradient(merge, microlabel);
+                                INDArray dwGradient = outputGradients[1];
+                                INDArray dbGradient = outputGradients[2];
+                                INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                                INDArray[] hiddens = Utils.splitHalf(merge);
+                                Pair<String, INDArray>[] grads = computeGradient(gradient, hiddens[0], hiddens[1],
+                                        nBlocks, blockList, lossGradient);
+                                if (flag) {
+                                    gradient.setGradientFor("outputProb_denseWeight", dwGradient, 'c');
+                                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                                    for (Pair<String, INDArray> grad : grads) {
+                                        gradient.setGradientFor(grad.getKey(), grad.getValue(), 'c');
+                                    }
+                                    flag = false;
+                                } else{
+                                    gradient.setGradientFor("outputProb_denseWeight", gradient.getGradientFor("outputProb_denseWeight").add(dwGradient.div(microNum)), 'c');
+                                    gradient.setGradientFor("outputProb_denseBias", gradient.getGradientFor("outputProb_denseBias").add(dbGradient.div(microNum)));
+                                    for (Pair<String, INDArray> grad : grads) {
+                                        gradient.setGradientFor(grad.getKey(), gradient.getGradientFor(grad.getKey()).add(grad.getValue().div(microNum)), 'c');
+                                    }
+                                }
                             }
-                            cifarTest.reset();
-                            log.info(evalTest.stats());
+
+                            updater.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                            model.params().subi(gradient.gradient());
+
+                            // Evaluate test accuracy per 50 iters
+                            if (i % 50 == 0) {
+                                log.info("Evaluate model....");
+                                Evaluation evalTest = new Evaluation(outputNum);
+                                while(cifarTest.hasNext()){
+                                    DataSet next = cifarTest.next();
+                                    INDArray out = model.output(false, false, next.getFeatures())[0];
+                                    evalTest.eval(next.getLabels(), out);
+                                }
+                                cifarTest.reset();
+                                log.info(evalTest.stats());
+                            }
+                            // Evaluate training accuracy for each iter
+                            INDArray label = data.getLabels();
+                            INDArray features = data.getFeatures();
+                            INDArray[] microOutputs = model.output(false, false, features);
+                            INDArray output = microOutputs[0];
+                            Evaluation eval = new Evaluation(outputNum);
+                            eval.eval(label, output);
+                            log.info(eval.stats());
+                            i++;
                         }
-                        Evaluation eval = new Evaluation(outputNum);
-                        eval.eval(label, output);
-                        log.info(eval.stats());
-                        i++;
+                        cifarTrain.reset();
                     }
-                    cifarTrain.reset();
+                } else {
+                    int i = 0;
+                    ComputationGraphUpdater updater = model.getUpdater();
+                    for (int epoch = 0; epoch < numEpochs; epoch++) {
+                        while (cifarTrain.hasNext()) {
+                            log.info("Running iter " + i);
+                            DataSet data = cifarTrain.next();
+                            INDArray label = data.getLabels();
+                            INDArray features = data.getFeatures();
+
+                            // Forward Pass
+                            INDArray[] outputs = model.output(false, false, features);
+                            INDArray output = outputs[0];
+                            INDArray merge = outputs[1];
+
+                            // Backward Pass
+                            Gradient gradient = new DefaultGradient();
+                            INDArray[] outputGradients = probLayer.gradient(merge, label);
+                            INDArray dwGradient = outputGradients[1];
+                            INDArray dbGradient = outputGradients[2];
+                            INDArray[] lossGradient = Utils.splitHalf(outputGradients[0]);
+                            INDArray[] hiddens = Utils.splitHalf(merge);
+                            Pair<String, INDArray>[] grads = computeGradient(gradient, hiddens[0], hiddens[1],
+                                    nBlocks, blockList, lossGradient);
+                            for (Pair<String, INDArray> grad : grads) {
+                                gradient.setGradientFor(grad.getKey(), grad.getValue(), 'c');
+                            }
+                            gradient.setGradientFor("outputProb_denseWeight", dwGradient, 'c');
+                            gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                            updater.update(gradient, i, epoch, batchSize, LayerWorkspaceMgr.noWorkspaces());
+                            model.params().subi(gradient.gradient());
+
+                            // Evaluation
+                            if (i % 50 == 0) {
+                                log.info("Evaluate model....");
+                                Evaluation evalTest = new Evaluation(outputNum);
+                                while(cifarTest.hasNext()){
+                                    DataSet next = cifarTest.next();
+                                    INDArray out = model.output(false, false, next.getFeatures())[0];
+                                    evalTest.eval(next.getLabels(), out);
+                                }
+                                cifarTest.reset();
+                                log.info(evalTest.stats());
+                            }
+                            Evaluation eval = new Evaluation(outputNum);
+                            eval.eval(label, output);
+                            log.info(eval.stats());
+                            i++;
+                        }
+                        cifarTrain.reset();
+                    }
                 }
             } else {
                 int i = 0;
@@ -221,7 +301,7 @@ public class CifarTest {
     }
 
     // This function computes the total gradient of the graph without referring to the stored activation
-    protected static void computeGradient(Gradient gradient, INDArray y1, INDArray y2, int[] nBlocks,
+    protected static Pair<String, INDArray>[] computeGradient(Gradient gradient, INDArray y1, INDArray y2, int[] nBlocks,
                                           List<IRevBlock> blockList, INDArray[] lossGradient) {
         INDArray dy1 = lossGradient[0];
         INDArray dy2 = lossGradient[1];
@@ -247,8 +327,6 @@ public class CifarTest {
                 cnt -= 1;
             }
         }
-        for (Pair<String, INDArray> grad : grads) {
-            gradient.setGradientFor(grad.getKey(), grad.getValue(), 'c');
-    }
+        return grads;
     }
 }
