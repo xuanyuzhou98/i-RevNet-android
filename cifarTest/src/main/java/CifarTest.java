@@ -37,7 +37,7 @@ public class CifarTest {
     private static final String basePath = System.getProperty("java.io.tmpdir") + "/cifar";
     private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
-    private static final boolean microbatch = true;
+    private static final boolean microbatch = false;
 
     public static void main(String[] args) {
         try {
@@ -183,8 +183,8 @@ public class CifarTest {
                                 Pair<String, INDArray>[] grads = computeGradient(gradient, hiddens[0], hiddens[1],
                                         nBlocks, blockList, lossGradient);
                                 if (flag) {
-                                    gradient.setGradientFor("outputProb_denseWeight", dwGradient, 'c');
-                                    gradient.setGradientFor("outputProb_denseBias", dbGradient);
+                                    gradient.setGradientFor("outputProb_denseWeight", dwGradient.div(microNum), 'c');
+                                    gradient.setGradientFor("outputProb_denseBias", dbGradient.div(microNum));
                                     for (Pair<String, INDArray> grad : grads) {
                                         gradient.setGradientFor(grad.getKey(), grad.getValue(), 'c');
                                     }
