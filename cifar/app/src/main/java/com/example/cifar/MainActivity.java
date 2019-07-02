@@ -111,13 +111,6 @@ public class MainActivity extends AppCompatActivity
         System.setProperty("org.bytedeco.javacpp.maxphysicalbytes", "0");
         System.setProperty("org.bytedeco.javacpp.maxbytes", "0");
 
-
-        if (half_precision) {
-            Nd4j.setDefaultDataTypes(DataType.HALF, DataType.HALF);
-        }
-
-        System.out.println("ND4J Data Type Setting: " + Nd4j.dataType());
-
         final Button button = findViewById(R.id.button);
 
         button.setOnClickListener(new View.OnClickListener() {
@@ -213,8 +206,10 @@ public class MainActivity extends AppCompatActivity
                         .weightDecay(5e-4);
 
                 if (half_precision) {
+                    Nd4j.setDefaultDataTypes(DataType.HALF, DataType.HALF);
                     config.dataType(DataType.HALF);
                 }
+                System.out.println("ND4J Data Type Setting: " + Nd4j.dataType());
 
                 ComputationGraphConfiguration.GraphBuilder graph = config.graphBuilder();
 
