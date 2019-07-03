@@ -39,7 +39,7 @@ import org.nd4j.jita.conf.CudaEnvironment;
 public class CifarTest {
     protected static final Logger log = LoggerFactory.getLogger(CifarTest.class);
     private static final String basePath = System.getProperty("java.io.tmpdir") + "/mnist";
-    private static final boolean manual_gradients = false;
+    private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
 
     public static void main(String[] args) {
@@ -142,8 +142,8 @@ public class CifarTest {
             graph.addVertex("merge", new MergeVertex(), input1, input2)
                 .addLayer("outputProb", probLayer,"merge")
                 .addLayer("output", lossLayer, "outputProb")
-                // .setOutputs("output", "merge");
-                .setOutputs("output");
+                .setOutputs("output", "merge");
+//                .setOutputs("output");
 
 
             ComputationGraphConfiguration conf = graph.build();
@@ -156,7 +156,7 @@ public class CifarTest {
                 .build();
 
             MemoryManager mg = Nd4j.getMemoryManager();
-            mg.togglePeriodicGc(true);
+            mg.togglePeriodicGc(false);
 
             log.info("start training");
             if (manual_gradients) {
@@ -244,7 +244,7 @@ public class CifarTest {
                 INDArray[] x = iRev.inverse(y1, y2);
                 INDArray x1 = x[0];
                 INDArray x2 = x[1];
-                Runtime.getRuntime().gc();
+                // Runtime.getRuntime().gc();
                 y1 = x1;
                 y2 = x2;
                 List<INDArray> gradients = iRev.gradient(x2, dy1, dy2);
