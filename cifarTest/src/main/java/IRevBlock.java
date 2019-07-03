@@ -18,6 +18,7 @@ public class IRevBlock {
     private Bottleneck bottleneck;
 
     public IRevBlock(ComputationGraphConfiguration.GraphBuilder graphBuilder,
+                     int batchsize, int inputH, int inputW,
                      int in_ch, int out_ch, int stride, boolean first, int mult, String input1,
                      String input2, String prefix) {
         int pad = 2 * out_ch - in_ch;
@@ -27,7 +28,7 @@ public class IRevBlock {
         this.pad = pad;
         this.stride = stride;
         this.prefix = prefix;
-        this.bottleneck = new Bottleneck(in_ch/2, out_ch, stride,
+        this.bottleneck = new Bottleneck(batchsize, inputH, inputW,in_ch/2, out_ch, stride,
                 mult, first);
         if (stride == 1 && pad != 0) {
             graphBuilder.addVertex(prefix + "merge", new MergeVertex(), input1, input2)

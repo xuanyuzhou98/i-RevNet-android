@@ -35,7 +35,7 @@ import java.util.*;
 public class CifarTest {
     protected static final Logger log = LoggerFactory.getLogger(CifarTest.class);
     private static final String basePath = System.getProperty("java.io.tmpdir") + "/cifar";
-    private static final boolean manual_gradients = true;
+    private static final boolean manual_gradients = false;
     private static final boolean half_precision = false;
     private static final boolean microbatch = false;
 
@@ -113,6 +113,8 @@ public class CifarTest {
             graph.addVertex("x0", new SubsetVertexN(0, n - 1), lastLayer)
                 .addVertex("tilde_x0", new SubsetVertexN(n, in_ch - 1), lastLayer);
             int in_ch_Block = in_ch;
+            int inputH = numRows;
+            int inputW = numColumns;
             String input1 = "x0";
             String input2 = "tilde_x0";
             boolean first = true;
@@ -123,8 +125,8 @@ public class CifarTest {
                     if (j == 0) {
                         stride = nStrides[i];
                     }
-                    IRevBlock innerIRevBlock = new IRevBlock(graph, in_ch_Block, nChannels[i], stride, first,
-                        mult, input1, input2, String.valueOf(i) + j);
+                    IRevBlock innerIRevBlock = new IRevBlock(graph, batchSize, inputH, inputW, in_ch_Block,
+                            nChannels[i], stride, first, mult, input1, input2, String.valueOf(i) + j);
                     String[] outputs = innerIRevBlock.getOutput();
                     input1 = outputs[0];
                     input2 = outputs[1];
@@ -134,7 +136,7 @@ public class CifarTest {
                 }
             }
 
-            ProbLayer probLayer = new ProbLayer(nChannels[nChannels.length - 1] * 2, outputNum);
+            ProbLayer probLayer = new ProbLayer(batchSize, inputH, inputW,nChannels[nChannels.length - 1] * 2, outputNum);
             LossLayer lossLayer = new LossLayer.Builder(LossFunctions.LossFunction.MCXENT)
                 .activation(Activation.SOFTMAX)
                 .build();
@@ -142,7 +144,7 @@ public class CifarTest {
             graph.addVertex("merge", new MergeVertex(), input1, input2)
                 .addLayer("outputProb", probLayer,"merge")
                 .addLayer("output", lossLayer, "outputProb")
-                .setOutputs("output", "merge");
+                .setOutputs("output");
 
 
             ComputationGraphConfiguration conf = graph.build();

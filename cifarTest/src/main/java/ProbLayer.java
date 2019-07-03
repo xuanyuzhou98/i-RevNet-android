@@ -14,12 +14,15 @@ import java.util.Map;
 
 
 public class ProbLayer extends SameDiffLayer {
+    private int batchsize;
+    private int inputH;
+    private int inputW;
     private int in_ch;
     private int out_ch;
     private Map<String, SDVariable> paramTable;
     protected static final Logger log = LoggerFactory.getLogger(ProbLayer.class);
 
-    public ProbLayer(int in_ch, int out_ch) {
+    public ProbLayer(int batchSize, int inputH, int inputW, int in_ch, int out_ch) {
         this.in_ch = in_ch;
         this.out_ch = out_ch;
     }
@@ -40,7 +43,16 @@ public class ProbLayer extends SameDiffLayer {
         this.paramTable = paramTable;
         SDVariable denseWeight = sd.var(paramTable.get("denseWeight"));
         SDVariable denseBias = sd.var(paramTable.get("denseBias"));
-        SDVariable outputRelu = sd.nn().relu("outputRelu", layerInput, 0.);
+
+        SDVariable convOutReshape = layerInput.permute(0, 2, 3, 1).reshape(batchsize * inputH * inputW, in_ch);   // reshape to (N*H*W, C)
+        SDVariable convOutMean = sd.mean(convOutReshape, 0);
+        SDVariable convOutVar = sd.variance(convOutReshape, true, 0);
+        SDVariable bnFinalGamma = sd.zero("bnFinalGamma", in_ch);
+        SDVariable bnFinalBeta = sd.one("bnFinalBeta", in_ch);
+        SDVariable bnFinal = sd.nn().batchNorm("bnFinal", layerInput, convOutMean, convOutVar, bnFinalGamma, bnFinalBeta, 1e-6, 1);
+
+        SDVariable outputRelu = sd.nn().relu("outputRelu", bnFinal, 0.);
+//        SDVariable outputRelu = sd.nn().relu("outputRelu", layerInput, 0.);
         SDVariable outputPool = outputRelu.mean("outputPool", false, 2, 3);
         SDVariable mmul = sd.mmul("mmul", outputPool, denseWeight);
         SDVariable outputDense = mmul.add("outputDense", denseBias);
