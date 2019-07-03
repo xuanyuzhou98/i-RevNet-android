@@ -1,4 +1,5 @@
 import javafx.util.Pair;
+import org.datavec.image.transform.*;
 import org.deeplearning4j.common.resources.DL4JResources;
 import org.deeplearning4j.datasets.fetchers.DataSetType;
 import org.deeplearning4j.datasets.iterator.impl.Cifar10DataSetIterator;
@@ -35,10 +36,11 @@ import java.util.List;
 import java.util.Map;
 import org.deeplearning4j.parallelism.ParallelWrapper;
 import org.nd4j.jita.conf.CudaEnvironment;
+import java.util.*;
 
 public class CifarTest {
     protected static final Logger log = LoggerFactory.getLogger(CifarTest.class);
-    private static final String basePath = System.getProperty("java.io.tmpdir") + "/mnist";
+    private static final String basePath = System.getProperty("java.io.tmpdir") + "/cifar";
     private static final boolean manual_gradients = true;
     private static final boolean half_precision = false;
 
@@ -64,6 +66,7 @@ public class CifarTest {
             int batchSize = 128;
             int mult = 4;
             double init_lr = 0.1;
+            Random randNumGen = new Random(rngSeed);
 
             Map<Integer, Double> learningRateSchedule = new HashMap<>();
             learningRateSchedule.put(0, init_lr);
@@ -76,8 +79,13 @@ public class CifarTest {
                 baseDir.mkdir();
             }
             DL4JResources.setBaseDirectory(baseDir);
+            List<org.nd4j.linalg.primitives.Pair<ImageTransform, Double>> pipeline = new LinkedList<>();
+            pipeline.add(new org.nd4j.linalg.primitives.Pair<>(new BoxImageTransform(40, 40), 1.0));
+            pipeline.add(new org.nd4j.linalg.primitives.Pair<>(new CropImageTransform(randNumGen, 4), 1.0));
+            pipeline.add(new org.nd4j.linalg.primitives.Pair<>(new FlipImageTransform(1), 0.5));
+            ImageTransform transform = new PipelineImageTransform(pipeline, false); // pad to 40*40, then crop to 32*32, then flip horizontally
             Cifar10DataSetIterator cifarTrain = new Cifar10DataSetIterator(batchSize, new int[]{numRows, numColumns},
-                DataSetType.TRAIN, null, rngSeed);
+                DataSetType.TRAIN, transform, rngSeed);
             DataNormalization normalizer = new NormalizerStandardize();
             normalizer.fit(cifarTrain);
             cifarTrain.setPreProcessor(normalizer);
