@@ -138,6 +138,15 @@ public class Bottleneck extends SameDiffLayer {
         return InputType.convolutional(outH, outW, this.out_ch);
     }
 
+    public int[] getOutputShape() {
+        int[] conv1Shape = Utils.getConvLayerOutShape(inputH, inputW, this.filterSize, this.stride, 1);
+        int[] conv2Shape = Utils.getConvLayerOutShape(conv1Shape[0], conv1Shape[1], this.filterSize, 1, 1);
+        int[] conv3Shape = Utils.getConvLayerOutShape(conv2Shape[0], conv2Shape[1], this.filterSize, 1, 1);
+
+        return new int[]{conv1Shape[0], conv1Shape[1]};
+    }
+
+
     /**
      * Gradients without referring to the stored activation.
      *

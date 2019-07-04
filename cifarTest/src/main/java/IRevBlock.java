@@ -71,6 +71,14 @@ public class IRevBlock {
         return x;
     }
 
+    public int getOutputH() {
+        return this.bottleneck.getOutputShape()[0];
+    }
+
+    public int getOutputW() {
+        return this.bottleneck.getOutputShape()[1];
+    }
+
     public INDArray[] inverse(INDArray y1, INDArray y2) {
         INDArray x1;
         INDArray x2;

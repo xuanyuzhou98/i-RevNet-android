@@ -42,7 +42,7 @@ public class CifarTest {
     public static void main(String[] args) {
         try {
             int[] nChannels = new int[]{16, 64, 256};
-            int[] nBlocks = new int[]{18, 18, 18};
+            int[] nBlocks = new int[]{2, 2, 2};
             int[] nStrides = new int[]{1, 2, 2};
             int channels = 3;
             int init_ds = 0;
@@ -132,6 +132,8 @@ public class CifarTest {
                     input2 = outputs[1];
                     blockList.add(innerIRevBlock);
                     in_ch_Block = 2 * nChannels[i];
+                    inputH = innerIRevBlock.getOutputH();
+                    inputW = innerIRevBlock.getOutputW();
                     first = false;
                 }
             }
