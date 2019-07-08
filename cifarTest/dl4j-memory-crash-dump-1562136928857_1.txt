@@ -1,0 +1,315 @@
+Deeplearning4j OOM Exception Encountered for ComputationGraph
+Timestamp:                              2019-07-02 23:55:28.857
+Thread ID                               1
+Thread Name                             main
+
+
+Stack Trace:
+java.lang.OutOfMemoryError: Cannot allocate new FloatPointer(524288): totalBytes = 3639M, physicalBytes = 4046M
+	at org.bytedeco.javacpp.FloatPointer.<init>(FloatPointer.java:76)
+	at org.nd4j.linalg.api.buffer.BaseDataBuffer.<init>(BaseDataBuffer.java:654)
+	at org.nd4j.linalg.api.buffer.FloatBuffer.<init>(FloatBuffer.java:54)
+	at org.nd4j.linalg.api.buffer.factory.DefaultDataBufferFactory.create(DefaultDataBufferFactory.java:280)
+	at org.nd4j.linalg.factory.Nd4j.createBuffer(Nd4j.java:1494)
+	at org.nd4j.linalg.api.ndarray.BaseNDArray.<init>(BaseNDArray.java:343)
+	at org.nd4j.linalg.cpu.nativecpu.NDArray.<init>(NDArray.java:193)
+	at org.nd4j.linalg.cpu.nativecpu.CpuNDArrayFactory.createUninitialized(CpuNDArrayFactory.java:199)
+	at org.nd4j.linalg.factory.Nd4j.createUninitialized(Nd4j.java:4729)
+	at org.nd4j.linalg.api.shape.Shape.toOffsetZeroCopyHelper(Shape.java:666)
+	at org.nd4j.linalg.api.shape.Shape.toOffsetZeroCopy(Shape.java:641)
+	at org.nd4j.linalg.api.ndarray.BaseNDArray.dup(BaseNDArray.java:1840)
+	at org.nd4j.linalg.api.ndarray.BaseNDArray.dup(BaseNDArray.java:1816)
+	at org.nd4j.autodiff.util.cloner.INDArrayFastCloner.clone(INDArrayFastCloner.java:28)
+	at com.rits.cloning.Cloner.fastClone(Cloner.java:115)
+	at com.rits.cloning.Cloner.cloneInternal(Cloner.java:417)
+	at com.rits.cloning.Cloner.cloneObject(Cloner.java:449)
+	at com.rits.cloning.Cloner.cloneInternal(Cloner.java:432)
+	at com.rits.cloning.Cloner.deepCloneDontCloneInstances(Cloner.java:319)
+	at org.nd4j.autodiff.samediff.SameDiff.invokeGraphOn(SameDiff.java:447)
+	at org.nd4j.autodiff.samediff.SameDiff$1.define(SameDiff.java:3343)
+	at org.nd4j.autodiff.samediff.SameDiff.defineFunction(SameDiff.java:3180)
+	at org.nd4j.autodiff.samediff.SameDiff.defineFunction(SameDiff.java:3165)
+	at org.nd4j.autodiff.samediff.SameDiff.createGradFunction(SameDiff.java:3334)
+	at org.nd4j.autodiff.samediff.SameDiff.execBackwards(SameDiff.java:3210)
+	at org.deeplearning4j.nn.layers.samediff.SameDiffLayer.backpropGradient(SameDiffLayer.java:130)
+	at org.deeplearning4j.nn.graph.vertex.impl.LayerVertex.doBackward(LayerVertex.java:149)
+	at org.deeplearning4j.nn.graph.ComputationGraph.calcBackpropGradients(ComputationGraph.java:2663)
+	at org.deeplearning4j.nn.graph.ComputationGraph.computeGradientAndScore(ComputationGraph.java:1378)
+	at org.deeplearning4j.nn.graph.ComputationGraph.computeGradientAndScore(ComputationGraph.java:1338)
+	at org.deeplearning4j.optimize.solvers.BaseOptimizer.gradientAndScore(BaseOptimizer.java:160)
+	at org.deeplearning4j.optimize.solvers.StochasticGradientDescent.optimize(StochasticGradientDescent.java:63)
+	at org.deeplearning4j.optimize.Solver.optimize(Solver.java:52)
+	at org.deeplearning4j.nn.graph.ComputationGraph.fitHelper(ComputationGraph.java:1162)
+	at org.deeplearning4j.nn.graph.ComputationGraph.fit(ComputationGraph.java:1112)
+	at CifarTest.main(CifarTest.java:296)
+Caused by: java.lang.OutOfMemoryError: Failed to allocate memory within limits: totalBytes (3639M + 2048K) > maxBytes (3641M)
+	at org.bytedeco.javacpp.Pointer.deallocator(Pointer.java:581)
+	at org.bytedeco.javacpp.Pointer.init(Pointer.java:125)
+	at org.bytedeco.javacpp.FloatPointer.allocateArray(Native Method)
+	at org.bytedeco.javacpp.FloatPointer.<init>(FloatPointer.java:68)
+	... 35 more
+
+
+========== Memory Information ==========
+----- Version Information -----
+Deeplearning4j Version                  1.0.0-beta4
+Deeplearning4j CUDA                     <not present>
+
+----- System Information -----
+Operating System                        Apple macOS 10.14.5
+CPU                                     Intel(R) Core(TM) i7-8559U CPU @ 2.70GHz
+CPU Cores - Physical                    4
+CPU Cores - Logical                     8
+Total System Memory                      16.00 GiB (17179869184)
+
+----- ND4J Environment Information -----
+Data Type                               FLOAT
+backend                                 CPU
+blas.vendor                             MKL
+os                                      Mac OS X
+
+----- Memory Configuration -----
+JVM Memory: XMX                           3.56 GiB (3817865216)
+JVM Memory: current                     670.00 MiB (702545920)
+JavaCPP Memory: Max Bytes                 3.56 GiB (3817865216)
+JavaCPP Memory: Max Physical              7.11 GiB (7635730432)
+JavaCPP Memory: Current Bytes             3.55 GiB (3816773350)
+JavaCPP Memory: Current Physical          4.41 GiB (4731523072)
+Periodic GC Enabled                     false
+
+----- Workspace Information -----
+Workspaces: # for current thread        6
+Current thread workspaces:
+  Name                      State       Size                          # Cycles            
+  WS_LAYER_WORKING_MEM      CLOSED           .00 B                    186                 
+  WS_ALL_LAYERS_ACT         CLOSED      1012.73 MiB (1061924522)      1                   
+  WS_LAYER_ACT_2            CLOSED           .00 B                    22                  
+  WS_LAYER_ACT_3            CLOSED           .00 B                    11                  
+  WS_LAYER_ACT_0            CLOSED           .00 B                    19                  
+  WS_LAYER_ACT_1            CLOSED           .00 B                    11                  
+Workspaces total size                   1012.73 MiB (1061924522)
+
+----- Network Information -----
+Network # Parameters                    6256170
+Parameter Memory                         23.87 MiB (25024680)
+Parameter Gradients Memory               23.87 MiB (25024680)
+Updater Number of Elements              6256170
+Updater Memory                           23.87 MiB (25024680)
+Updater Classes:
+  org.nd4j.linalg.learning.NesterovsUpdater
+Params + Gradient + Updater Memory       47.73 MiB (50049360)
+Iteration Count                         0
+Epoch Count                             0
+Backprop Type                           Standard
+Workspace Mode: Training                ENABLED
+Workspace Mode: Inference               ENABLED
+Number of Layers                        63
+Layer Counts
+  LossLayer                               1
+  PsiLayerImpl                            4
+  SameDiffLayer                           57
+  ZeroPaddingLayer                        1
+Layer Parameter Breakdown
+  Idx Name                 Layer Type           Layer # Parameters   Layer Parameter Memory
+  4   00permute1           SameDiffLayer        0                         .00 B          
+  5   00zeroPadding        ZeroPaddingLayer     0                         .00 B          
+  6   00permute2           SameDiffLayer        0                         .00 B          
+  9   00btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  11  01btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  13  02btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  15  03btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  17  04btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  19  05btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  21  06btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  23  07btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  25  08btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  27  09btnk               SameDiffLayer        1296                   5.06 KiB (5184)   
+  29  010btnk              SameDiffLayer        1296                   5.06 KiB (5184)   
+  31  011btnk              SameDiffLayer        1296                   5.06 KiB (5184)   
+  33  012btnk              SameDiffLayer        1296                   5.06 KiB (5184)   
+  35  013btnk              SameDiffLayer        1296                   5.06 KiB (5184)   
+  37  014btnk              SameDiffLayer        1296                   5.06 KiB (5184)   
+  39  015btnk              SameDiffLayer        1296                   5.06 KiB (5184)   
+  41  016btnk              SameDiffLayer        1296                   5.06 KiB (5184)   
+  43  017btnk              SameDiffLayer        1296                   5.06 KiB (5184)   
+  45  10btnk               SameDiffLayer        13824                 54.00 KiB (55296)  
+  46  10_psi2              PsiLayerImpl         0                         .00 B          
+  47  10_psi2              PsiLayerImpl         0                         .00 B          
+  49  11btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  51  12btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  53  13btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  55  14btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  57  15btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  59  16btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  61  17btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  63  18btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  65  19btnk               SameDiffLayer        20736                 81.00 KiB (82944)  
+  67  110btnk              SameDiffLayer        20736                 81.00 KiB (82944)  
+  69  111btnk              SameDiffLayer        20736                 81.00 KiB (82944)  
+  71  112btnk              SameDiffLayer        20736                 81.00 KiB (82944)  
+  73  113btnk              SameDiffLayer        20736                 81.00 KiB (82944)  
+  75  114btnk              SameDiffLayer        20736                 81.00 KiB (82944)  
+  77  115btnk              SameDiffLayer        20736                 81.00 KiB (82944)  
+  79  116btnk              SameDiffLayer        20736                 81.00 KiB (82944)  
+  81  117btnk              SameDiffLayer        20736                 81.00 KiB (82944)  
+  83  20btnk               SameDiffLayer        221184               864.00 KiB (884736) 
+  84  20_psi2              PsiLayerImpl         0                         .00 B          
+  85  20_psi2              PsiLayerImpl         0                         .00 B          
+  87  21btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  89  22btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  91  23btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  93  24btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  95  25btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  97  26btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  99  27btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  101 28btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  103 29btnk               SameDiffLayer        331776                 1.27 MiB (1327104)
+  105 210btnk              SameDiffLayer        331776                 1.27 MiB (1327104)
+  107 211btnk              SameDiffLayer        331776                 1.27 MiB (1327104)
+  109 212btnk              SameDiffLayer        331776                 1.27 MiB (1327104)
+  111 213btnk              SameDiffLayer        331776                 1.27 MiB (1327104)
+  113 214btnk              SameDiffLayer        331776                 1.27 MiB (1327104)
+  115 215btnk              SameDiffLayer        331776                 1.27 MiB (1327104)
+  117 216btnk              SameDiffLayer        331776                 1.27 MiB (1327104)
+  119 217btnk              SameDiffLayer        331776                 1.27 MiB (1327104)
+  122 outputProb           SameDiffLayer        5130                  20.04 KiB (20520)  
+  123 output               LossLayer            0                         .00 B          
+
+----- Layer Helpers - Memory Use -----
+Total Helper Count                      0
+Helper Count w/ Memory                  0
+Total Helper Persistent Memory Use           .00 B
+
+----- Network Activations: Inferred Activation Shapes -----
+Current Minibatch Size                  128
+Current Input Shape (Input 0)           [128, 3, 32, 32]
+Idx Name                 Layer Type           Activations Type                           Activations Shape    # Elements   Memory      
+0   input                InputVertex          InputTypeConvolutional(h=32,w=32,c=3)      [128, 3, 32, 32]     393216         1.50 MiB (1572864)
+1   x0                   SubsetVertex         InputTypeConvolutional(h=32,w=32,c=1)      [128, 1, 32, 32]     131072       512.00 KiB (524288)
+2   tilde_x0             SubsetVertex         InputTypeConvolutional(h=32,w=32,c=2)      [128, 2, 32, 32]     262144         1.00 MiB (1048576)
+3   00merge              MergeVertex          InputTypeConvolutional(h=32,w=32,c=3)      [128, 3, 32, 32]     393216         1.50 MiB (1572864)
+4   00permute1           SameDiffLayer        InputTypeConvolutional(h=3,w=32,c=32)      [128, 32, 3, 32]     393216         1.50 MiB (1572864)
+5   00zeroPadding        ZeroPaddingLayer     InputTypeConvolutional(h=32,w=32,c=32)     [128, 32, 32, 32]    4194304       16.00 MiB (16777216)
+6   00permute2           SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=32)     [128, 32, 32, 32]    4194304       16.00 MiB (16777216)
+7   00x1                 SubsetVertex         InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+8   00x2                 SubsetVertex         InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+9   00btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+10  00_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+11  01btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+12  01_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+13  02btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+14  02_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+15  03btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+16  03_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+17  04btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+18  04_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+19  05btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+20  05_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+21  06btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+22  06_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+23  07btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+24  07_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+25  08btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+26  08_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+27  09btnk               SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+28  09_y1                ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+29  010btnk              SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+30  010_y1               ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+31  011btnk              SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+32  011_y1               ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+33  012btnk              SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+34  012_y1               ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+35  013btnk              SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+36  013_y1               ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+37  014btnk              SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+38  014_y1               ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+39  015btnk              SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+40  015_y1               ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+41  016btnk              SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+42  016_y1               ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+43  017btnk              SameDiffLayer        InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+44  017_y1               ElementWiseVertex    InputTypeConvolutional(h=32,w=32,c=16)     [128, 16, 32, 32]    2097152        8.00 MiB (8388608)
+45  10btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+46  10_psi1              PsiLayerImpl         InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+47  10_psi2              PsiLayerImpl         InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+48  10_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+49  11btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+50  11_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+51  12btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+52  12_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+53  13btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+54  13_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+55  14btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+56  14_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+57  15btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+58  15_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+59  16btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+60  16_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+61  17btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+62  17_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+63  18btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+64  18_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+65  19btnk               SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+66  19_y1                ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+67  110btnk              SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+68  110_y1               ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+69  111btnk              SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+70  111_y1               ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+71  112btnk              SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+72  112_y1               ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+73  113btnk              SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+74  113_y1               ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+75  114btnk              SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+76  114_y1               ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+77  115btnk              SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+78  115_y1               ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+79  116btnk              SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+80  116_y1               ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+81  117btnk              SameDiffLayer        InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+82  117_y1               ElementWiseVertex    InputTypeConvolutional(h=16,w=16,c=64)     [128, 64, 16, 16]    2097152        8.00 MiB (8388608)
+83  20btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+84  20_psi1              PsiLayerImpl         InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+85  20_psi2              PsiLayerImpl         InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+86  20_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+87  21btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+88  21_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+89  22btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+90  22_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+91  23btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+92  23_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+93  24btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+94  24_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+95  25btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+96  25_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+97  26btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+98  26_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+99  27btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+100 27_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+101 28btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+102 28_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+103 29btnk               SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+104 29_y1                ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+105 210btnk              SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+106 210_y1               ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+107 211btnk              SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+108 211_y1               ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+109 212btnk              SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+110 212_y1               ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+111 213btnk              SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+112 213_y1               ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+113 214btnk              SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+114 214_y1               ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+115 215btnk              SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+116 215_y1               ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+117 216btnk              SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+118 216_y1               ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+119 217btnk              SameDiffLayer        InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+120 217_y1               ElementWiseVertex    InputTypeConvolutional(h=8,w=8,c=256)      [128, 256, 8, 8]     2097152        8.00 MiB (8388608)
+121 merge                MergeVertex          InputTypeConvolutional(h=8,w=8,c=512)      [128, 512, 8, 8]     4194304       16.00 MiB (16777216)
+122 outputProb           SameDiffLayer        InputTypeFeedForward(10)                   [128, 10]            1280           5.00 KiB (5120)
+123 output               LossLayer            InputTypeFeedForward(0)                    [128, 0]             0                 .00 B  
+Total Activations Memory                966.00 MiB (1012929536)
+Total Activation Gradient Memory        966.00 MiB (1012929536)
+
+----- Network Training Listeners -----
+Number of Listeners                     0

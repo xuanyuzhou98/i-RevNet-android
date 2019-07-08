@@ -34,7 +34,7 @@ import java.util.*;
 
 public class CifarTest {
     protected static final Logger log = LoggerFactory.getLogger(CifarTest.class);
-    private static final String basePath = System.getProperty("java.io.tmpdir") + "/cifar";
+    private static final String basePath = System.getProperty("user.home") + "/cifar";
     private static final boolean manual_gradients = false;
     private static final boolean half_precision = false;
     private static final boolean microbatch = false;
@@ -68,7 +68,7 @@ public class CifarTest {
 
             File baseDir = new File(basePath);
             if (!baseDir.exists()) {
-                baseDir.mkdir();
+                baseDir.mkdirs();
             }
             DL4JResources.setBaseDirectory(baseDir);
             List<org.nd4j.linalg.primitives.Pair<ImageTransform, Double>> pipeline = new LinkedList<>();
