@@ -15,6 +15,7 @@ import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
+import org.deeplearning4j.parallelism.ParallelWrapper;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -29,6 +30,7 @@ import org.nd4j.linalg.schedule.ScheduleType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.rmi.runtime.Log;
+import org.nd4j.jita.conf.CudaEnvironment;
 
 import java.io.File;
 import java.util.HashMap;
@@ -54,6 +56,11 @@ public class Main {
         Random randNumGen = new Random(rngSeed);
 
         try {
+
+            CudaEnvironment.getInstance().getConfiguration()
+                    .allowMultiGPU(true)
+                    .setMaximumDeviceCache(2L * 1024L * 1024L * 1024L)
+                    .allowCrossDeviceAccess(true);
 
             // vectorization of train data
             File trainData = new File(basePath + "/mnist_png/training");
@@ -156,9 +163,14 @@ public class Main {
             myNetwork.setListeners(new ScoreIterationListener(10));
             log.info("Total num of params", "Total num of params" + myNetwork.numParams());
 
+            ParallelWrapper wrapper = new ParallelWrapper.Builder(myNetwork)
+                    .prefetchBuffer(24)
+                    .workers(2)
+                    .build();
+
             log.info("train model", "Train model....");
             for (int l = 0; l <= numEpochs; l++) {
-                myNetwork.fit(mnistTrain);
+                wrapper.fit(mnistTrain);
             }
 
             log.info("evaluate model", "Evaluate model....");
